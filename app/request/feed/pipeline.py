@@ -6,12 +6,12 @@ from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.embedding_models import PostEmbedding
-from app.core.models import Block, Follow, Post, PostEngagement, PostStatus, User
-from app.core.social_models import FeedImpression, UserFeedEntry
+from app.core.models import Block, Follow, Mute, Post, PostEngagement, PostStatus, User
+from app.core.social_models import FeedImpression, MutedKeyword, UserFeedEntry
 from app.embedding.encoder import mean_embedding
 from app.embedding.search import search_similar_posts
 from app.policy.engine import PolicyContext, PolicyVerdict, Rule, evaluate_rules
-from app.ranking.scorer import rank_candidates, score_candidate
+from app.ranking.scorer import rank_candidates
 from app.ranking.weights import RankingWeights, load_weights
 from app.request.feed.blender import SourceBlender
 from app.request.feed.types import FeedCandidate, FeedQuery, encode_cursor
@@ -61,6 +61,22 @@ class BlockedUserIdsQueryHydrator(QueryHydrator):
             select(Block.blocked_id).where(Block.blocker_id == query.viewer_id)
         )
         query.blocked_user_ids = {row[0] for row in result.all()}
+        return query
+
+
+class MutedUserIdsQueryHydrator(QueryHydrator):
+    async def hydrate(self, db: AsyncSession, query: FeedQuery) -> FeedQuery:
+        result = await db.execute(select(Mute.muted_id).where(Mute.muter_id == query.viewer_id))
+        query.muted_user_ids = {row[0] for row in result.all()}
+        return query
+
+
+class MutedKeywordsQueryHydrator(QueryHydrator):
+    async def hydrate(self, db: AsyncSession, query: FeedQuery) -> FeedQuery:
+        result = await db.execute(
+            select(MutedKeyword.keyword).where(MutedKeyword.user_id == query.viewer_id)
+        )
+        query.muted_keywords = {row[0] for row in result.all()}
         return query
 
 
@@ -255,6 +271,8 @@ class PolicyFilter:
                 viewer_id=query.viewer_id,
                 following_ids=query.following_ids,
                 blocked_user_ids=query.blocked_user_ids,
+                muted_user_ids=query.muted_user_ids,
+                muted_keywords=query.muted_keywords,
                 candidate=candidate,
             )
             verdict, rule_name = evaluate_rules(self.rules, context)
@@ -365,7 +383,6 @@ class FeedPipeline:
         start = time.perf_counter()
         for candidate in candidates:
             candidate.seen = candidate.id in query.seen_post_ids
-            candidate.rank_score = score_candidate(query, candidate, self.weights)
         candidates = rank_candidates(query, candidates, self.weights)
         stage_stats["Ranker"] = {
             "duration_ms": (time.perf_counter() - start) * 1000,
@@ -391,6 +408,8 @@ def build_feed_pipeline(weights: RankingWeights | None = None) -> FeedPipeline:
         query_hydrators=[
             FollowingQueryHydrator(),
             BlockedUserIdsQueryHydrator(),
+            MutedUserIdsQueryHydrator(),
+            MutedKeywordsQueryHydrator(),
             SeenPostsQueryHydrator(),
             ViewerInterestQueryHydrator(),
         ],

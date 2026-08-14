@@ -1,8 +1,8 @@
 import enum
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from datetime import datetime
 
-from app.core.models import UserStatus
 from app.request.feed.types import FeedCandidate
 
 
@@ -17,6 +17,9 @@ class PolicyContext:
     following_ids: set[uuid.UUID]
     blocked_user_ids: set[uuid.UUID]
     candidate: FeedCandidate
+    muted_user_ids: set[uuid.UUID] = field(default_factory=set)
+    muted_keywords: set[str] = field(default_factory=set)
+    now: datetime | None = None
 
 
 class Rule:

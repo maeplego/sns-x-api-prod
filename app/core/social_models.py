@@ -8,6 +8,22 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.core.models import Base
 
 
+class MutedKeyword(Base):
+    __tablename__ = "muted_keywords"
+    __table_args__ = (
+        UniqueConstraint("user_id", "keyword", name="uq_muted_keywords_user_keyword"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), index=True
+    )
+    keyword: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
 class Like(Base):
     __tablename__ = "likes"
     __table_args__ = (UniqueConstraint("user_id", "post_id", name="uq_likes_pair"),)

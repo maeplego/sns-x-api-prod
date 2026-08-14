@@ -1,11 +1,11 @@
 # sns-tutorial-x
 
-個人開発 SNS バックエンドを **x-algorithm（X For You feed OSS）の設計思想** から学びながら、**コピペで実装できる** 10 回連載です。
+個人開発 SNS バックエンドを **x-algorithm（X For You feed OSS）の設計思想** から学びながら、**コピペで実装できる** 連載です。
 
 - **スコープ:** API のみ（curl / HTTPie / OpenAPI）
 - **スタック:** FastAPI + PostgreSQL + Redis
 - **進め方:** 各回の記事を上から順にコピペする。記事末尾にその回の完成形ファイルを掲載
-- **タグ:** `v0.1` … `v1.0`（各回のテスト通過後に自動付与）
+- **タグ:** `v0.1` … `v1.1`（各回のテスト通過後に自動付与）
 
 ## シリーズ目次
 
@@ -21,6 +21,7 @@
 | 8 | [SideEffect & 通知](articles/08-side-effects.md) | `v0.8` |
 | 9 | [Fan-out feed](articles/09-fanout-feed.md) | `v0.9` |
 | 10 | [OutOfNetwork & pgvector](articles/10-out-of-network.md) | `v1.0` |
+| 11 | [ミュート・採点前フィルタ・作者多様性](articles/11-mutes-filters-diversity.md) | `v1.1` |
 
 ## クイックスタート
 
@@ -34,7 +35,7 @@ docker compose up --build
 
 ```bash
 curl http://localhost:8000/health
-# {"status":"ok","version":"1.0.0"}
+# {"status":"ok","version":"1.1.0"}
 ```
 
 ## 設計原則

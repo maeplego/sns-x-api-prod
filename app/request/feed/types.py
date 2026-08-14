@@ -12,6 +12,8 @@ class FeedQuery:
     viewer_id: uuid.UUID
     following_ids: set[uuid.UUID] = field(default_factory=set)
     blocked_user_ids: set[uuid.UUID] = field(default_factory=set)
+    muted_user_ids: set[uuid.UUID] = field(default_factory=set)
+    muted_keywords: set[str] = field(default_factory=set)
     seen_post_ids: set[uuid.UUID] = field(default_factory=set)
     viewer_interest_vector: list[float] | None = None
     cursor: tuple[datetime, uuid.UUID] | None = None

@@ -83,3 +83,32 @@ class BlockResponse(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class MuteResponse(BaseModel):
+    muter_id: uuid.UUID
+    muted_id: uuid.UUID
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class MutedKeywordCreateRequest(BaseModel):
+    keyword: str = Field(min_length=1, max_length=64)
+
+    @field_validator("keyword")
+    @classmethod
+    def normalize_keyword(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if not normalized:
+            raise ValueError("keyword must not be blank")
+        return normalized
+
+
+class MutedKeywordResponse(BaseModel):
+    id: uuid.UUID
+    user_id: uuid.UUID
+    keyword: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}

@@ -75,4 +75,4 @@ pytest
 
 ---
 
-**シリーズ:** [第9回](09-fanout-feed.md) ← **第10回（完）**
+**シリーズ:** [第9回](09-fanout-feed.md) ← **第10回** → [第11回](11-mutes-filters-diversity.md)

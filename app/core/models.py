@@ -113,3 +113,20 @@ class Block(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+
+
+class Mute(Base):
+    """Hide an account without breaking the follow edge (unlike Block)."""
+
+    __tablename__ = "mutes"
+    __table_args__ = (UniqueConstraint("muter_id", "muted_id", name="uq_mutes_pair"),)
+
+    muter_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), primary_key=True
+    )
+    muted_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), primary_key=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )

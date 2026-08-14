@@ -1,5 +1,6 @@
 import math
 from datetime import UTC, datetime
+from uuid import UUID
 
 from app.ranking.weights import RankingWeights
 from app.request.feed.types import FeedCandidate, FeedQuery
@@ -39,6 +40,28 @@ def score_candidate(
     )
 
 
+def apply_author_diversity(
+    candidates: list[FeedCandidate],
+    *,
+    decay: float,
+    floor: float,
+) -> list[FeedCandidate]:
+    """Attenuate repeated authors after independent scoring.
+
+    Walks candidates in current score order so the strongest post from an
+    author keeps factor 1.0. Each later post is multiplied by decay**n,
+    clamped to floor, then the list is re-sorted.
+    """
+    seen_count: dict[UUID, int] = {}
+    for candidate in candidates:
+        count = seen_count.get(candidate.author_id, 0)
+        factor = max(floor, decay**count)
+        if candidate.rank_score is not None:
+            candidate.rank_score *= factor
+        seen_count[candidate.author_id] = count + 1
+    return sorted(candidates, key=lambda c: c.rank_score or 0.0, reverse=True)
+
+
 def rank_candidates(
     query: FeedQuery,
     candidates: list[FeedCandidate],
@@ -46,8 +69,11 @@ def rank_candidates(
     *,
     now: datetime | None = None,
 ) -> list[FeedCandidate]:
-    return sorted(
-        candidates,
-        key=lambda c: score_candidate(query, c, weights, now=now),
-        reverse=True,
+    for candidate in candidates:
+        candidate.rank_score = score_candidate(query, candidate, weights, now=now)
+    ordered = sorted(candidates, key=lambda c: c.rank_score or 0.0, reverse=True)
+    return apply_author_diversity(
+        ordered,
+        decay=weights.author_diversity_decay,
+        floor=weights.author_diversity_floor,
     )
