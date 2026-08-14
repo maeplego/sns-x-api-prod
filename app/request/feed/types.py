@@ -12,6 +12,7 @@ class FeedQuery:
     viewer_id: uuid.UUID
     following_ids: set[uuid.UUID] = field(default_factory=set)
     blocked_user_ids: set[uuid.UUID] = field(default_factory=set)
+    seen_post_ids: set[uuid.UUID] = field(default_factory=set)
     cursor: tuple[datetime, uuid.UUID] | None = None
     limit: int = 20
 

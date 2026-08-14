@@ -6,6 +6,7 @@ from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.models import Block, Follow, Post, PostEngagement, PostStatus, User
+from app.core.social_models import FeedImpression
 from app.policy.engine import PolicyContext, PolicyVerdict, Rule, evaluate_rules
 from app.ranking.scorer import rank_candidates, score_candidate
 from app.ranking.weights import RankingWeights, load_weights
@@ -54,6 +55,15 @@ class BlockedUserIdsQueryHydrator(QueryHydrator):
             select(Block.blocked_id).where(Block.blocker_id == query.viewer_id)
         )
         query.blocked_user_ids = {row[0] for row in result.all()}
+        return query
+
+
+class SeenPostsQueryHydrator(QueryHydrator):
+    async def hydrate(self, db: AsyncSession, query: FeedQuery) -> FeedQuery:
+        result = await db.execute(
+            select(FeedImpression.post_id).where(FeedImpression.viewer_id == query.viewer_id)
+        )
+        query.seen_post_ids = {row[0] for row in result.all()}
         return query
 
 
@@ -247,6 +257,7 @@ class FeedPipeline:
 
         start = time.perf_counter()
         for candidate in candidates:
+            candidate.seen = candidate.id in query.seen_post_ids
             candidate.rank_score = score_candidate(query, candidate, self.weights)
         candidates = rank_candidates(query, candidates, self.weights)
         stage_stats["Ranker"] = {
@@ -270,7 +281,11 @@ def build_feed_pipeline(weights: RankingWeights | None = None) -> FeedPipeline:
 
     resolved_weights = weights or load_weights()
     return FeedPipeline(
-        query_hydrators=[FollowingQueryHydrator(), BlockedUserIdsQueryHydrator()],
+        query_hydrators=[
+            FollowingQueryHydrator(),
+            BlockedUserIdsQueryHydrator(),
+            SeenPostsQueryHydrator(),
+        ],
         sources=[InNetworkSource()],
         hydrators=[AuthorHydrator(), EngagementHydrator()],
         policy=PolicyFilter(home_feed_policy()),

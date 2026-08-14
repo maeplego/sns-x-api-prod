@@ -5,11 +5,12 @@ import structlog
 from fastapi import FastAPI
 
 from app.core.config import settings
+from app.core.middleware import RequestIdMiddleware
 from app.core.startup import run_startup_checks
 from app.labeling.loading import load_all
 from app.ranking.weights import load_weights
 from app.request.feed.router import router as feed_router
-from app.request.routers import auth, blocks, follows, posts, users
+from app.request.routers import auth, blocks, follows, likes, notifications, posts, users
 
 logger = structlog.get_logger(__name__)
 
@@ -50,18 +51,22 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="sns-tutorial-x",
     description="Personal SNS API tutorial (x-algorithm inspired, copy-paste edition)",
-    version="0.7.0",
+    version="0.8.0",
     lifespan=lifespan,
 )
+
+app.add_middleware(RequestIdMiddleware)
 
 app.include_router(feed_router)
 app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(posts.router)
+app.include_router(likes.router)
+app.include_router(notifications.router)
 app.include_router(blocks.router)
 app.include_router(follows.router)
 
 
 @app.get("/health")
 async def health() -> dict[str, str]:
-    return {"status": "ok", "version": "0.7.0"}
+    return {"status": "ok", "version": "0.8.0"}
