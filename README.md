@@ -5,7 +5,7 @@
 - **スコープ:** API のみ（curl / HTTPie / OpenAPI）
 - **スタック:** FastAPI + PostgreSQL + Redis
 - **進め方:** 各回の記事を上から順にコピペする。記事末尾にその回の完成形ファイルを掲載
-- **タグ:** `v0.1` … `v1.4`（各回のテスト通過後に自動付与）
+- **タグ:** `v0.1` … `v1.5`（各回のテスト通過後に自動付与）
 
 ## シリーズ目次
 
@@ -25,6 +25,7 @@
 | 12 | [返信 / スレッド](articles/12-replies-threads.md) | `v1.2` |
 | 13 | [興味なし / 非表示](articles/13-not-interested.md) | `v1.3` |
 | 14 | [Following 専用 TL](articles/14-following-timeline.md) | `v1.4` |
+| 15 | [Who to Follow](articles/15-who-to-follow.md) | `v1.5` |
 
 ## クイックスタート
 
@@ -38,7 +39,7 @@ docker compose up --build
 
 ```bash
 curl http://localhost:8000/health
-# {"status":"ok","version":"1.4.0"}
+# {"status":"ok","version":"1.5.0"}
 ```
 
 ## 設計原則

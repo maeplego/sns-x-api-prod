@@ -1,4 +1,11 @@
+from typing import TypeVar
+
 from app.request.feed.types import FeedCandidate, FeedQuery
+
+T = TypeVar("T")
+
+# 1-indexed slot, matching home-mixer WHO_TO_FOLLOW_POSITION.
+WHO_TO_FOLLOW_POSITION = 6
 
 
 class SourceBlender:
@@ -34,3 +41,16 @@ class SourceBlender:
             oon_added += 1
 
         return merged
+
+
+def insert_who_to_follow(items: list[T], module: T) -> list[T]:
+    """Insert a non-post module at a fixed slot (Blending Pipeline).
+
+    SourceBlender merges post sources. This function is the next stage:
+    ranked posts stay in order, Who to Follow is spliced in at position 6
+    (or at the end when the page is shorter).
+    """
+    result = list(items)
+    insert_idx = min(WHO_TO_FOLLOW_POSITION - 1, len(result))
+    result.insert(insert_idx, module)
+    return result

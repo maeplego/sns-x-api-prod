@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from app.request.feed.blender import SourceBlender
+from app.request.feed.blender import SourceBlender, insert_who_to_follow
 from app.request.feed.types import FeedCandidate, FeedQuery
 
 
@@ -49,3 +49,16 @@ def test_blender_caps_oon_ratio():
     oon_count = sum(1 for c in merged if c.source == "oon")
     assert oon_count == 3
     assert len(merged) == 8
+
+
+def test_insert_who_to_follow_uses_sixth_slot():
+    posts = [f"p{i}" for i in range(8)]
+    blended = insert_who_to_follow(posts, "wtf")
+    assert blended[5] == "wtf"
+    assert blended[:5] == ["p0", "p1", "p2", "p3", "p4"]
+    assert blended[6:] == ["p5", "p6", "p7"]
+
+
+def test_insert_who_to_follow_appends_when_page_is_short():
+    blended = insert_who_to_follow(["p0", "p1"], "wtf")
+    assert blended == ["p0", "p1", "wtf"]

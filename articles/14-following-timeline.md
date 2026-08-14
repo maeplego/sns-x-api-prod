@@ -305,4 +305,4 @@ async def get_following_feed(
 
 ---
 
-**シリーズ:** [第13回](13-not-interested.md) ← **第14回**
+**シリーズ:** [第13回](13-not-interested.md) ← **第14回** → [第15回](15-who-to-follow.md)
