@@ -42,6 +42,7 @@ async def _search_postgres(
             Post.deleted_at.is_(None),
             Post.status == PostStatus.PUBLISHED,
             Post.visibility == PostVisibility.PUBLIC,
+            Post.parent_id.is_(None),
         )
         .order_by(distance)
         .limit(limit)
@@ -67,6 +68,7 @@ async def _search_python(
             Post.deleted_at.is_(None),
             Post.status == PostStatus.PUBLISHED,
             Post.visibility == PostVisibility.PUBLIC,
+            Post.parent_id.is_(None),
         )
     )
     if exclude_authors:

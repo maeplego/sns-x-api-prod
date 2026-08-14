@@ -61,7 +61,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="sns-tutorial-x",
     description="Personal SNS API tutorial (x-algorithm inspired, copy-paste edition)",
-    version="1.1.0",
+    version="1.2.0",
     lifespan=lifespan,
 )
 
@@ -81,4 +81,4 @@ app.include_router(follows.router)
 
 @app.get("/health")
 async def health() -> dict[str, str]:
-    return {"status": "ok", "version": "1.1.0"}
+    return {"status": "ok", "version": "1.2.0"}

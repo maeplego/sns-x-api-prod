@@ -39,6 +39,7 @@ async def get_user_posts(handle: str, db: AsyncSession = Depends(get_db)) -> lis
             Post.author_id == user.id,
             Post.deleted_at.is_(None),
             Post.status == PostStatus.PUBLISHED,
+            Post.parent_id.is_(None),
         )
         .order_by(Post.created_at.desc())
     )

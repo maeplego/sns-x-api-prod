@@ -19,6 +19,43 @@ from app.request.feed.types import FeedCandidate, FeedQuery, encode_cursor
 logger = structlog.get_logger(__name__)
 
 
+def _from_post(post: Post, **overrides) -> FeedCandidate:
+    values = dict(
+        id=post.id,
+        author_id=post.author_id,
+        body=post.body,
+        created_at=post.created_at,
+        visibility=post.visibility,
+        parent_id=post.parent_id,
+        root_id=post.root_id,
+    )
+    values.update(overrides)
+    return FeedCandidate(**values)
+
+
+def dedupe_conversations(candidates: list[FeedCandidate]) -> list[FeedCandidate]:
+    """Keep the root when present; otherwise keep the top-scored orphan reply.
+
+    Matches x-algorithm DedupConversationFilter at personal scale: one item
+    per conversation in the For You page.
+    """
+    conversations_with_root = {c.root_id or c.id for c in candidates if c.parent_id is None}
+    orphan_kept: set = set()
+    kept: list[FeedCandidate] = []
+    for candidate in candidates:
+        conversation_id = candidate.root_id or candidate.id
+        if candidate.parent_id is None:
+            kept.append(candidate)
+            continue
+        if conversation_id in conversations_with_root:
+            continue
+        if conversation_id in orphan_kept:
+            continue
+        orphan_kept.add(conversation_id)
+        kept.append(candidate)
+    return kept
+
+
 class QueryHydrator(ABC):
     @abstractmethod
     async def hydrate(self, db: AsyncSession, query: FeedQuery) -> FeedQuery: ...
@@ -93,7 +130,11 @@ class ViewerInterestQueryHydrator(QueryHydrator):
     async def hydrate(self, db: AsyncSession, query: FeedQuery) -> FeedQuery:
         result = await db.execute(
             select(UserFeedEntry.post_id)
-            .where(UserFeedEntry.user_id == query.viewer_id)
+            .join(Post, Post.id == UserFeedEntry.post_id)
+            .where(
+                UserFeedEntry.user_id == query.viewer_id,
+                Post.parent_id.is_(None),
+            )
             .order_by(UserFeedEntry.created_at.desc())
             .limit(20)
         )
@@ -141,13 +182,7 @@ class ThunderSource(Source):
         result = await db.execute(stmt)
         rows = result.all()
         return [
-            FeedCandidate(
-                id=post.id,
-                author_id=post.author_id,
-                body=post.body,
-                created_at=entry.created_at,
-                visibility=post.visibility,
-            )
+            _from_post(post, created_at=entry.created_at)
             for entry, post in rows
         ]
 
@@ -162,15 +197,7 @@ class OutOfNetworkSource(Source):
         fetch_limit = max(query.limit + 1, int(query.limit * 0.3) + 5)
         rows = await search_similar_posts(db, query, limit=fetch_limit)
         return [
-            FeedCandidate(
-                id=post.id,
-                author_id=post.author_id,
-                body=post.body,
-                created_at=post.created_at,
-                visibility=post.visibility,
-                source="oon",
-                similarity_score=similarity,
-            )
+            _from_post(post, source="oon", similarity_score=similarity)
             for post, similarity in rows
         ]
 
@@ -202,16 +229,7 @@ class InNetworkSource(Source):
 
         result = await db.execute(stmt)
         posts = result.scalars().all()
-        return [
-            FeedCandidate(
-                id=post.id,
-                author_id=post.author_id,
-                body=post.body,
-                created_at=post.created_at,
-                visibility=post.visibility,
-            )
-            for post in posts
-        ]
+        return [_from_post(post) for post in posts]
 
 
 class AuthorHydrator(Hydrator):
@@ -233,6 +251,38 @@ class AuthorHydrator(Hydrator):
             candidate.author_display_name = author.display_name
             candidate.author_is_private = author.is_private
             candidate.author_status = author.status
+        return candidates
+
+
+class ParentHydrator(Hydrator):
+    async def enrich(
+        self, db: AsyncSession, query: FeedQuery, candidates: list[FeedCandidate]
+    ) -> list[FeedCandidate]:
+        parent_ids = {c.parent_id for c in candidates if c.parent_id is not None}
+        if not parent_ids:
+            return candidates
+
+        result = await db.execute(select(Post).where(Post.id.in_(parent_ids)))
+        parents = {post.id: post for post in result.scalars().all()}
+        author_ids = {post.author_id for post in parents.values()}
+        authors: dict = {}
+        if author_ids:
+            author_result = await db.execute(select(User).where(User.id.in_(author_ids)))
+            authors = {user.id: user for user in author_result.scalars().all()}
+
+        for candidate in candidates:
+            if candidate.parent_id is None:
+                continue
+            parent = parents.get(candidate.parent_id)
+            if parent is None or parent.deleted_at is not None or parent.status != PostStatus.PUBLISHED:
+                candidate.parent_missing = True
+                continue
+            candidate.parent_author_id = parent.author_id
+            candidate.parent_visibility = parent.visibility
+            author = authors.get(parent.author_id)
+            if author is not None:
+                candidate.parent_author_is_private = author.is_private
+                candidate.parent_author_status = author.status
         return candidates
 
 
@@ -320,6 +370,7 @@ class FeedPipeline:
         weights: RankingWeights,
         selector: Selector,
         blender: SourceBlender | None = None,
+        conversation_deduper: bool = True,
     ):
         self.query_hydrators = query_hydrators
         self.sources = sources
@@ -328,6 +379,7 @@ class FeedPipeline:
         self.weights = weights
         self.selector = selector
         self.blender = blender
+        self.conversation_deduper = conversation_deduper
 
     async def run(self, db: AsyncSession, query: FeedQuery) -> tuple[list[FeedCandidate], str | None]:
         stage_stats: dict[str, dict[str, float | int]] = {}
@@ -389,6 +441,16 @@ class FeedPipeline:
             "count": len(candidates),
         }
 
+        if self.conversation_deduper:
+            start = time.perf_counter()
+            before_dedupe = len(candidates)
+            candidates = dedupe_conversations(candidates)
+            stage_stats["ConversationDeduper"] = {
+                "duration_ms": (time.perf_counter() - start) * 1000,
+                "count_before": before_dedupe,
+                "count_after": len(candidates),
+            }
+
         start = time.perf_counter()
         selected, next_cursor = self.selector.select(query, candidates)
         stage_stats[self.selector.__class__.__name__] = {
@@ -415,7 +477,7 @@ def build_feed_pipeline(weights: RankingWeights | None = None) -> FeedPipeline:
         ],
         sources=[ThunderSource(), OutOfNetworkSource()],
         blender=SourceBlender(oon_ratio=0.3),
-        hydrators=[AuthorHydrator(), EngagementHydrator()],
+        hydrators=[AuthorHydrator(), ParentHydrator(), EngagementHydrator()],
         policy=PolicyFilter(home_feed_policy()),
         weights=resolved_weights,
         selector=CursorSelector(),

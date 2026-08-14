@@ -17,6 +17,14 @@ class ValidatePostTask(Task):
                 raise ValueError("post not found")
             if not post.body.strip():
                 raise ValueError("post body empty")
+            if post.parent_id is not None:
+                parent = await db.get(Post, post.parent_id)
+                if (
+                    parent is None
+                    or parent.deleted_at is not None
+                    or parent.status != PostStatus.PUBLISHED
+                ):
+                    raise ValueError("parent post not available")
 
 
 class PublishPostTask(Task):

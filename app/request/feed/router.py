@@ -51,6 +51,7 @@ async def get_feed(
             body=c.body,
             created_at=c.created_at,
             rank_score=c.rank_score,
+            parent_id=c.parent_id,
         )
         for c in candidates
     ]

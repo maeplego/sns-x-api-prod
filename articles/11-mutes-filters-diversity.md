@@ -684,4 +684,4 @@ def rank_candidates(...):
 
 ---
 
-**シリーズ:** [第10回](10-out-of-network.md) ← **第11回** → 第12回（返信 / スレッド）
+**シリーズ:** [第10回](10-out-of-network.md) ← **第11回** → [第12回](12-replies-threads.md)

@@ -97,10 +97,66 @@ class FollowersOnlyPostRule(Rule):
         return PolicyVerdict.DROP
 
 
+class OonReplyRule(Rule):
+    name = "OonReplyRule"
+
+    def evaluate(self, context: PolicyContext) -> PolicyVerdict:
+        candidate = context.candidate
+        if candidate.parent_id is None:
+            return PolicyVerdict.ALLOW
+        if candidate.source == "oon":
+            return PolicyVerdict.DROP
+        return PolicyVerdict.ALLOW
+
+
+class ReplyAncillaryRule(Rule):
+    """Drop a reply when its parent would be invisible (x-algorithm AncillaryVF)."""
+
+    name = "ReplyAncillaryRule"
+
+    def evaluate(self, context: PolicyContext) -> PolicyVerdict:
+        candidate = context.candidate
+        if candidate.parent_id is None:
+            return PolicyVerdict.ALLOW
+        if candidate.parent_missing or candidate.parent_author_id is None:
+            return PolicyVerdict.DROP
+        parent_author_id = candidate.parent_author_id
+        if parent_author_id in context.blocked_user_ids:
+            return PolicyVerdict.DROP
+        if parent_author_id in context.muted_user_ids:
+            return PolicyVerdict.DROP
+        if candidate.parent_author_status == UserStatus.SUSPENDED:
+            return PolicyVerdict.DROP
+        if parent_author_id == context.viewer_id:
+            return PolicyVerdict.ALLOW
+        if candidate.parent_author_is_private and parent_author_id not in context.following_ids:
+            return PolicyVerdict.DROP
+        if (
+            candidate.parent_visibility == PostVisibility.FOLLOWERS_ONLY
+            and parent_author_id not in context.following_ids
+        ):
+            return PolicyVerdict.DROP
+        return PolicyVerdict.ALLOW
+
+
 def home_feed_policy() -> list[Rule]:
     return [
         SelfPostRule(),
         AgeRule(),
+        BlockedAuthorRule(),
+        MutedAuthorRule(),
+        MutedKeywordRule(),
+        SuspendedAuthorRule(),
+        PrivateAccountRule(),
+        FollowersOnlyPostRule(),
+        OonReplyRule(),
+        ReplyAncillaryRule(),
+    ]
+
+
+def thread_policy() -> list[Rule]:
+    """Thread view shows own posts and old posts; it still hides blocks/mutes."""
+    return [
         BlockedAuthorRule(),
         MutedAuthorRule(),
         MutedKeywordRule(),

@@ -12,6 +12,7 @@ class FeedPostItem(BaseModel):
     body: str
     created_at: datetime
     rank_score: float | None = None
+    parent_id: uuid.UUID | None = None
 
 
 class FeedResponse(BaseModel):

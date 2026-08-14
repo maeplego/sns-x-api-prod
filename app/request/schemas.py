@@ -49,6 +49,7 @@ class UserResponse(BaseModel):
 class PostCreateRequest(BaseModel):
     body: str = Field(min_length=1, max_length=2000)
     visibility: PostVisibility = PostVisibility.PUBLIC
+    parent_id: uuid.UUID | None = None
 
 
 class PostResponse(BaseModel):
@@ -57,9 +58,26 @@ class PostResponse(BaseModel):
     body: str
     visibility: PostVisibility
     status: PostStatus
+    parent_id: uuid.UUID | None = None
+    root_id: uuid.UUID | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class ThreadPostItem(BaseModel):
+    id: uuid.UUID
+    author_id: uuid.UUID
+    author_handle: str
+    author_display_name: str
+    body: str
+    parent_id: uuid.UUID | None
+    created_at: datetime
+
+
+class ThreadResponse(BaseModel):
+    root_id: uuid.UUID
+    items: list[ThreadPostItem]
 
 
 class PostAcceptedResponse(BaseModel):

@@ -68,6 +68,12 @@ class Post(Base):
         DateTime(timezone=True), server_default=func.now(), index=True
     )
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    parent_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("posts.id"), nullable=True, index=True
+    )
+    root_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("posts.id"), nullable=True, index=True
+    )
 
     author: Mapped[User] = relationship(back_populates="posts")
 

@@ -38,6 +38,13 @@ class FeedCandidate:
     rank_score: float | None = None
     source: str = "in_network"
     similarity_score: float | None = None
+    parent_id: uuid.UUID | None = None
+    root_id: uuid.UUID | None = None
+    parent_missing: bool = False
+    parent_author_id: uuid.UUID | None = None
+    parent_visibility: PostVisibility = PostVisibility.PUBLIC
+    parent_author_is_private: bool = False
+    parent_author_status: UserStatus = UserStatus.ACTIVE
 
 
 def encode_cursor(created_at: datetime, post_id: uuid.UUID) -> str:
