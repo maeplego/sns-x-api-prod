@@ -65,4 +65,4 @@ pytest
 
 ---
 
-**シリーズ:** [第7回](07-plugin-registry.md) ← **第8回** → 第9回
+**シリーズ:** [第7回](07-plugin-registry.md) ← **第8回** → [第9回](09-fanout-feed.md)

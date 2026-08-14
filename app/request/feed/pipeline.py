@@ -6,7 +6,7 @@ from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.models import Block, Follow, Post, PostEngagement, PostStatus, User
-from app.core.social_models import FeedImpression
+from app.core.social_models import FeedImpression, UserFeedEntry
 from app.policy.engine import PolicyContext, PolicyVerdict, Rule, evaluate_rules
 from app.ranking.scorer import rank_candidates, score_candidate
 from app.ranking.weights import RankingWeights, load_weights
@@ -65,6 +65,47 @@ class SeenPostsQueryHydrator(QueryHydrator):
         )
         query.seen_post_ids = {row[0] for row in result.all()}
         return query
+
+
+class ThunderSource(Source):
+    """Read pre-materialized in-network candidates from user_feed."""
+
+    async def fetch(self, db: AsyncSession, query: FeedQuery) -> list[FeedCandidate]:
+        stmt = (
+            select(UserFeedEntry, Post)
+            .join(Post, Post.id == UserFeedEntry.post_id)
+            .where(
+                UserFeedEntry.user_id == query.viewer_id,
+                Post.deleted_at.is_(None),
+                Post.status == PostStatus.PUBLISHED,
+            )
+            .order_by(UserFeedEntry.created_at.desc(), UserFeedEntry.post_id.desc())
+            .limit(query.limit + 1)
+        )
+        if query.cursor is not None:
+            cursor_time, cursor_id = query.cursor
+            stmt = stmt.where(
+                or_(
+                    UserFeedEntry.created_at < cursor_time,
+                    and_(
+                        UserFeedEntry.created_at == cursor_time,
+                        UserFeedEntry.post_id < cursor_id,
+                    ),
+                )
+            )
+
+        result = await db.execute(stmt)
+        rows = result.all()
+        return [
+            FeedCandidate(
+                id=post.id,
+                author_id=post.author_id,
+                body=post.body,
+                created_at=entry.created_at,
+                visibility=post.visibility,
+            )
+            for entry, post in rows
+        ]
 
 
 class InNetworkSource(Source):
@@ -286,7 +327,7 @@ def build_feed_pipeline(weights: RankingWeights | None = None) -> FeedPipeline:
             BlockedUserIdsQueryHydrator(),
             SeenPostsQueryHydrator(),
         ],
-        sources=[InNetworkSource()],
+        sources=[ThunderSource()],
         hydrators=[AuthorHydrator(), EngagementHydrator()],
         policy=PolicyFilter(home_feed_policy()),
         weights=resolved_weights,

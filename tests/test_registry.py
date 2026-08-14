@@ -9,7 +9,7 @@ def test_load_all_registers_flow_plans():
     load_all()
     plans = get_plans_for_event(POST_CREATED)
     keys = [plan.KEY for plan in plans]
-    assert keys == ["post_publish", "engagement_init"]
+    assert keys == ["post_publish", "fanout", "engagement_init"]
 
 
 def test_duplicate_plan_keys_rejected():

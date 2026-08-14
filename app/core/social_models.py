@@ -52,3 +52,21 @@ class FeedImpression(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), index=True
     )
+
+
+class UserFeedEntry(Base):
+    """Thunder-style fan-out cache: one row per (feed owner, post)."""
+
+    __tablename__ = "user_feed"
+    __table_args__ = (UniqueConstraint("user_id", "post_id", name="uq_user_feed_pair"),)
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), primary_key=True
+    )
+    post_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("posts.id"), primary_key=True
+    )
+    author_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)

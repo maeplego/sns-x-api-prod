@@ -61,7 +61,9 @@ async def test_followers_only_post_hidden_without_follow(client: AsyncClient):
     carol_headers = {"Authorization": f"Bearer {carol_token}"}
     dave_headers = {"Authorization": f"Bearer {dave_token}"}
 
+    # Fan-out writes at publish time — follow before the post.
     await client.post(f"/follows/{bob['id']}", headers=carol_headers)
+    await client.post(f"/follows/{bob['id']}", headers=dave_headers)
     await client.post(
         "/posts",
         headers=bob_headers,
@@ -71,7 +73,6 @@ async def test_followers_only_post_hidden_without_follow(client: AsyncClient):
     carol_feed = await client.get("/feed", headers=carol_headers)
     assert len(carol_feed.json()["items"]) == 1
 
-    await client.post(f"/follows/{bob['id']}", headers=dave_headers)
     dave_feed = await client.get("/feed", headers=dave_headers)
     assert len(dave_feed.json()["items"]) == 1
 
