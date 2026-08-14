@@ -12,7 +12,7 @@
 | 回 | タイトル | Tag |
 |---|---|---|
 | 1 | [アーキテクチャの土台](articles/01-architecture.md) | `v0.1` |
-| 2 | API & DB & 認証 | `v0.2` |
+| 2 | [API & DB & 認証](articles/02-api-db-auth.md) | `v0.2` |
 | 3 | タイムラインパイプライン（Pull） | `v0.3` |
 | 4 | Policy 層 | `v0.4` |
 | 5 | Ranking 層 | `v0.5` |

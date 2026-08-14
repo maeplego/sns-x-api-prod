@@ -18,6 +18,10 @@ class Settings(BaseSettings):
     redis_host: str = "localhost"
     redis_port: int = 6379
 
+    jwt_secret: str = "dev-only-change-me"
+    jwt_algorithm: str = "HS256"
+    jwt_expire_hours: int = 24
+
     @property
     def postgres_dsn(self) -> str:
         return (
