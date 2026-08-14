@@ -199,4 +199,4 @@ background_tasks.add_task(..., [item.id for item in items if item.kind == "post"
 
 ---
 
-**シリーズ:** [第14回](14-following-timeline.md) ← **第15回**
+**シリーズ:** [第14回](14-following-timeline.md) ← **第15回** → [まとめ](16-series-map.md)

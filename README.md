@@ -1,11 +1,13 @@
 # sns-tutorial-x
 
-個人開発 SNS バックエンドを **x-algorithm（X For You feed OSS）の設計思想** から学びながら、**コピペで実装できる** 連載です。
+個人開発 SNS バックエンドを **x-algorithm（X For You feed OSS）の設計思想** から学びながら、**コピペで実装できる** 連載です。**第15回（`v1.5`）で完結**しています。
+
+全体の段と、何を何回で足したかは **[第1〜15回の地図](articles/16-series-map.md)** にまとめてあります。
 
 - **スコープ:** API のみ（curl / HTTPie / OpenAPI）
 - **スタック:** FastAPI + PostgreSQL + Redis
 - **進め方:** 各回の記事を上から順にコピペする。記事末尾にその回の完成形ファイルを掲載
-- **タグ:** `v0.1` … `v1.5`（各回のテスト通過後に自動付与）
+- **タグ:** `v0.1` … `v1.5`（各回のテスト通過後に付与。まとめに新しいタグはない）
 
 ## シリーズ目次
 
@@ -26,6 +28,7 @@
 | 13 | [興味なし / 非表示](articles/13-not-interested.md) | `v1.3` |
 | 14 | [Following 専用 TL](articles/14-following-timeline.md) | `v1.4` |
 | 15 | [Who to Follow](articles/15-who-to-follow.md) | `v1.5` |
+| まとめ | [第1〜15回の地図](articles/16-series-map.md) | （コードは `v1.5`） |
 
 ## クイックスタート
 
