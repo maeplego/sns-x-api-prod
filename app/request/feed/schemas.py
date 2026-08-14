@@ -11,6 +11,7 @@ class FeedPostItem(BaseModel):
     author_display_name: str
     body: str
     created_at: datetime
+    rank_score: float | None = None
 
 
 class FeedResponse(BaseModel):

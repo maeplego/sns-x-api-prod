@@ -40,6 +40,7 @@ async def get_feed(
             author_display_name=c.author_display_name or "Unknown",
             body=c.body,
             created_at=c.created_at,
+            rank_score=c.rank_score,
         )
         for c in candidates
     ]

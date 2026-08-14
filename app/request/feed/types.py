@@ -27,6 +27,11 @@ class FeedCandidate:
     author_display_name: str | None = None
     author_is_private: bool = False
     author_status: UserStatus = UserStatus.ACTIVE
+    like_count: int = 0
+    reply_count: int = 0
+    author_affinity: float = 0.0
+    seen: bool = False
+    rank_score: float | None = None
 
 
 def encode_cursor(created_at: datetime, post_id: uuid.UUID) -> str:

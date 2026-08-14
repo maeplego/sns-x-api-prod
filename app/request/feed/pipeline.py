@@ -7,6 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.models import Block, Follow, Post, PostStatus, User
 from app.policy.engine import PolicyContext, PolicyVerdict, Rule, evaluate_rules
+from app.ranking.scorer import rank_candidates, score_candidate
+from app.ranking.weights import RankingWeights, load_weights
 from app.request.feed.types import FeedCandidate, FeedQuery, encode_cursor
 
 logger = structlog.get_logger(__name__)
@@ -172,12 +174,14 @@ class FeedPipeline:
         sources: list[Source],
         hydrators: list[Hydrator],
         policy: PolicyFilter,
+        weights: RankingWeights,
         selector: Selector,
     ):
         self.query_hydrators = query_hydrators
         self.sources = sources
         self.hydrators = hydrators
         self.policy = policy
+        self.weights = weights
         self.selector = selector
 
     async def run(self, db: AsyncSession, query: FeedQuery) -> tuple[list[FeedCandidate], str | None]:
@@ -220,6 +224,15 @@ class FeedPipeline:
         }
 
         start = time.perf_counter()
+        for candidate in candidates:
+            candidate.rank_score = score_candidate(query, candidate, self.weights)
+        candidates = rank_candidates(query, candidates, self.weights)
+        stage_stats["Ranker"] = {
+            "duration_ms": (time.perf_counter() - start) * 1000,
+            "count": len(candidates),
+        }
+
+        start = time.perf_counter()
         selected, next_cursor = self.selector.select(query, candidates)
         stage_stats[self.selector.__class__.__name__] = {
             "duration_ms": (time.perf_counter() - start) * 1000,
@@ -230,13 +243,15 @@ class FeedPipeline:
         return selected, next_cursor
 
 
-def build_feed_pipeline() -> FeedPipeline:
+def build_feed_pipeline(weights: RankingWeights | None = None) -> FeedPipeline:
     from app.policy.rules import home_feed_policy
 
+    resolved_weights = weights or load_weights()
     return FeedPipeline(
         query_hydrators=[FollowingQueryHydrator(), BlockedUserIdsQueryHydrator()],
         sources=[InNetworkSource()],
         hydrators=[AuthorHydrator()],
         policy=PolicyFilter(home_feed_policy()),
+        weights=resolved_weights,
         selector=CursorSelector(),
     )

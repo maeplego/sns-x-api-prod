@@ -15,7 +15,7 @@
 | 2 | [API & DB & 認証](articles/02-api-db-auth.md) | `v0.2` |
 | 3 | [タイムラインパイプライン（Pull）](articles/03-feed-pipeline.md) | `v0.3` |
 | 4 | [Policy 層](articles/04-policy.md) | `v0.4` |
-| 5 | Ranking 層 | `v0.5` |
+| 5 | [Ranking 層](articles/05-ranking.md) | `v0.5` |
 | 6 | Labeling Path | `v0.6` |
 | 7 | Plugin registry | `v0.7` |
 | 8 | SideEffect & 通知 | `v0.8` |

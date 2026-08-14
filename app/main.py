@@ -6,6 +6,7 @@ from fastapi import FastAPI
 
 from app.core.config import settings
 from app.core.startup import run_startup_checks
+from app.ranking.weights import load_weights
 from app.request.feed.router import router as feed_router
 from app.request.routers import auth, blocks, follows, posts, users
 
@@ -38,6 +39,7 @@ async def lifespan(app: FastAPI):
         redis_host=settings.redis_host,
     )
     if settings.app_env != "test":
+        load_weights()
         await run_startup_checks()
     yield
     logger.info("shutdown")
@@ -46,7 +48,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="sns-tutorial-x",
     description="Personal SNS API tutorial (x-algorithm inspired, copy-paste edition)",
-    version="0.4.0",
+    version="0.5.0",
     lifespan=lifespan,
 )
 
@@ -60,4 +62,4 @@ app.include_router(follows.router)
 
 @app.get("/health")
 async def health() -> dict[str, str]:
-    return {"status": "ok", "version": "0.4.0"}
+    return {"status": "ok", "version": "0.5.0"}

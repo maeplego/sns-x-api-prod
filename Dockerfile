@@ -8,6 +8,7 @@ ENV PYTHONUNBUFFERED=1
 COPY pyproject.toml README.md alembic.ini ./
 COPY app ./app
 COPY alembic ./alembic
+COPY ranking ./ranking
 
 RUN pip install --no-cache-dir .
 

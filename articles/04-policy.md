@@ -91,4 +91,4 @@ pytest
 
 ---
 
-**シリーズ:** [第3回](03-feed-pipeline.md) ← **第4回** → 第5回
+**シリーズ:** [第3回](03-feed-pipeline.md) ← **第4回** → [第5回](05-ranking.md)
