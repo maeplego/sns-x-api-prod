@@ -5,7 +5,7 @@ import structlog
 from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.models import Block, Follow, Post, PostStatus, User
+from app.core.models import Block, Follow, Post, PostEngagement, PostStatus, User
 from app.policy.engine import PolicyContext, PolicyVerdict, Rule, evaluate_rules
 from app.ranking.scorer import rank_candidates, score_candidate
 from app.ranking.weights import RankingWeights, load_weights
@@ -114,6 +114,28 @@ class AuthorHydrator(Hydrator):
             candidate.author_display_name = author.display_name
             candidate.author_is_private = author.is_private
             candidate.author_status = author.status
+        return candidates
+
+
+class EngagementHydrator(Hydrator):
+    async def enrich(
+        self, db: AsyncSession, query: FeedQuery, candidates: list[FeedCandidate]
+    ) -> list[FeedCandidate]:
+        if not candidates:
+            return candidates
+
+        post_ids = [c.id for c in candidates]
+        result = await db.execute(
+            select(PostEngagement).where(PostEngagement.post_id.in_(post_ids))
+        )
+        engagement_by_post = {row.post_id: row for row in result.scalars().all()}
+
+        for candidate in candidates:
+            engagement = engagement_by_post.get(candidate.id)
+            if engagement is None:
+                continue
+            candidate.like_count = engagement.like_count
+            candidate.reply_count = engagement.reply_count
         return candidates
 
 
@@ -250,7 +272,7 @@ def build_feed_pipeline(weights: RankingWeights | None = None) -> FeedPipeline:
     return FeedPipeline(
         query_hydrators=[FollowingQueryHydrator(), BlockedUserIdsQueryHydrator()],
         sources=[InNetworkSource()],
-        hydrators=[AuthorHydrator()],
+        hydrators=[AuthorHydrator(), EngagementHydrator()],
         policy=PolicyFilter(home_feed_policy()),
         weights=resolved_weights,
         selector=CursorSelector(),

@@ -4,7 +4,7 @@ import pytest
 from httpx import AsyncClient
 
 from app.core import database
-from app.core.models import Post, PostStatus
+from app.core.models import Post, PostEngagement, PostStatus
 
 
 @pytest.mark.asyncio
@@ -37,6 +37,9 @@ async def test_create_post_returns_202_and_publishes(client: AsyncClient):
         post = await db.get(Post, uuid.UUID(body["id"]))
         assert post is not None
         assert post.status == PostStatus.PUBLISHED
+        engagement = await db.get(PostEngagement, uuid.UUID(body["id"]))
+        assert engagement is not None
+        assert engagement.like_count == 0
 
     public_get = await client.get(f"/posts/{body['id']}")
     assert public_get.status_code == 200

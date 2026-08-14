@@ -17,7 +17,7 @@
 | 4 | [Policy 層](articles/04-policy.md) | `v0.4` |
 | 5 | [Ranking 層](articles/05-ranking.md) | `v0.5` |
 | 6 | [Labeling Path](articles/06-labeling.md) | `v0.6` |
-| 7 | Plugin registry | `v0.7` |
+| 7 | [Plugin registry](articles/07-plugin-registry.md) | `v0.7` |
 | 8 | SideEffect & 通知 | `v0.8` |
 | 9 | Fan-out feed | `v0.9` |
 | 10 | OutOfNetwork & pgvector | `v1.0` |
