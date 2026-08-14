@@ -4,13 +4,14 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from app.core.models import PostVisibility
+from app.core.models import PostVisibility, UserStatus
 
 
 @dataclass
 class FeedQuery:
     viewer_id: uuid.UUID
     following_ids: set[uuid.UUID] = field(default_factory=set)
+    blocked_user_ids: set[uuid.UUID] = field(default_factory=set)
     cursor: tuple[datetime, uuid.UUID] | None = None
     limit: int = 20
 
@@ -24,6 +25,8 @@ class FeedCandidate:
     visibility: PostVisibility = PostVisibility.PUBLIC
     author_handle: str | None = None
     author_display_name: str | None = None
+    author_is_private: bool = False
+    author_status: UserStatus = UserStatus.ACTIVE
 
 
 def encode_cursor(created_at: datetime, post_id: uuid.UUID) -> str:

@@ -161,4 +161,4 @@ app.include_router(feed_router)
 
 ---
 
-**シリーズ:** [第2回](02-api-db-auth.md) ← **第3回** → 第4回
+**シリーズ:** [第2回](02-api-db-auth.md) ← **第3回** → [第4回](04-policy.md)

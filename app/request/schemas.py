@@ -68,3 +68,11 @@ class FollowResponse(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class BlockResponse(BaseModel):
+    blocker_id: uuid.UUID
+    blocked_id: uuid.UUID
+    created_at: datetime
+
+    model_config = {"from_attributes": True}

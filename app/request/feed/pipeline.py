@@ -5,7 +5,8 @@ import structlog
 from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.models import Follow, Post, PostStatus, User
+from app.core.models import Block, Follow, Post, PostStatus, User
+from app.policy.engine import PolicyContext, PolicyVerdict, Rule, evaluate_rules
 from app.request.feed.types import FeedCandidate, FeedQuery, encode_cursor
 
 logger = structlog.get_logger(__name__)
@@ -42,6 +43,15 @@ class FollowingQueryHydrator(QueryHydrator):
         )
         query.following_ids = {row[0] for row in result.all()}
         query.following_ids.add(query.viewer_id)
+        return query
+
+
+class BlockedUserIdsQueryHydrator(QueryHydrator):
+    async def hydrate(self, db: AsyncSession, query: FeedQuery) -> FeedQuery:
+        result = await db.execute(
+            select(Block.blocked_id).where(Block.blocker_id == query.viewer_id)
+        )
+        query.blocked_user_ids = {row[0] for row in result.all()}
         return query
 
 
@@ -100,7 +110,46 @@ class AuthorHydrator(Hydrator):
                 continue
             candidate.author_handle = author.handle
             candidate.author_display_name = author.display_name
+            candidate.author_is_private = author.is_private
+            candidate.author_status = author.status
         return candidates
+
+
+class PolicyFilter:
+    def __init__(self, rules: list[Rule]):
+        self.rules = rules
+
+    async def apply(self, query: FeedQuery, candidates: list[FeedCandidate]) -> list[FeedCandidate]:
+        kept: list[FeedCandidate] = []
+        drops: list[dict[str, str]] = []
+
+        for candidate in candidates:
+            context = PolicyContext(
+                viewer_id=query.viewer_id,
+                following_ids=query.following_ids,
+                blocked_user_ids=query.blocked_user_ids,
+                candidate=candidate,
+            )
+            verdict, rule_name = evaluate_rules(self.rules, context)
+            if verdict == PolicyVerdict.DROP:
+                drops.append(
+                    {
+                        "post_id": str(candidate.id),
+                        "author_id": str(candidate.author_id),
+                        "rule": rule_name or "unknown",
+                    }
+                )
+                continue
+            kept.append(candidate)
+
+        if drops:
+            logger.info(
+                "policy_drops",
+                viewer_id=str(query.viewer_id),
+                dropped_count=len(drops),
+                drops=drops[:20],
+            )
+        return kept
 
 
 class CursorSelector(Selector):
@@ -122,11 +171,13 @@ class FeedPipeline:
         query_hydrators: list[QueryHydrator],
         sources: list[Source],
         hydrators: list[Hydrator],
+        policy: PolicyFilter,
         selector: Selector,
     ):
         self.query_hydrators = query_hydrators
         self.sources = sources
         self.hydrators = hydrators
+        self.policy = policy
         self.selector = selector
 
     async def run(self, db: AsyncSession, query: FeedQuery) -> tuple[list[FeedCandidate], str | None]:
@@ -159,6 +210,16 @@ class FeedPipeline:
             }
 
         start = time.perf_counter()
+        before_policy = len(candidates)
+        candidates = await self.policy.apply(query, candidates)
+        stage_stats["PolicyFilter"] = {
+            "duration_ms": (time.perf_counter() - start) * 1000,
+            "count_before": before_policy,
+            "count_after": len(candidates),
+            "dropped": before_policy - len(candidates),
+        }
+
+        start = time.perf_counter()
         selected, next_cursor = self.selector.select(query, candidates)
         stage_stats[self.selector.__class__.__name__] = {
             "duration_ms": (time.perf_counter() - start) * 1000,
@@ -170,9 +231,12 @@ class FeedPipeline:
 
 
 def build_feed_pipeline() -> FeedPipeline:
+    from app.policy.rules import home_feed_policy
+
     return FeedPipeline(
-        query_hydrators=[FollowingQueryHydrator()],
+        query_hydrators=[FollowingQueryHydrator(), BlockedUserIdsQueryHydrator()],
         sources=[InNetworkSource()],
         hydrators=[AuthorHydrator()],
+        policy=PolicyFilter(home_feed_policy()),
         selector=CursorSelector(),
     )
