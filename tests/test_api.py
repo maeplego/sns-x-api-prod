@@ -58,7 +58,7 @@ async def test_signup_login_and_post(client: AsyncClient):
 
     posts = await client.get("/users/alice/posts")
     assert posts.status_code == 200
-    assert len(posts.json()) == 1
+    assert len(posts.json()["items"]) == 1
 
 
 @pytest.mark.asyncio

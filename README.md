@@ -1,53 +1,36 @@
-# sns-tutorial-x
+# sns-tutorial-x-api
 
-個人開発 SNS バックエンドを **x-algorithm（X For You feed OSS）の設計思想** から学びながら、**コピペで実装できる** 連載です。**第15回（`v1.5`）で完結**しています。
+[sns-tutorial-x](../sns-tutorial-x)（`v1.5`）の **プロダクト用フォーク** です。チュートリアル本体は凍結したまま、フロント（`sns-tutorial-x-frontend`）から叩く API をここに足します。
 
-全体の段と、何を何回で足したかは **[第1〜15回の地図](articles/16-series-map.md)** にまとめてあります。
-
-- **スコープ:** API のみ（curl / HTTPie / OpenAPI）
-- **スタック:** FastAPI + PostgreSQL + Redis
-- **進め方:** 各回の記事を上から順にコピペする。記事末尾にその回の完成形ファイルを掲載
-- **タグ:** `v0.1` … `v1.5`（各回のテスト通過後に付与。まとめに新しいタグはない）
-
-## シリーズ目次
-
-| 回 | タイトル | Tag |
-|---|---|---|
-| 1 | [アーキテクチャの土台](articles/01-architecture.md) | `v0.1` |
-| 2 | [API & DB & 認証](articles/02-api-db-auth.md) | `v0.2` |
-| 3 | [タイムラインパイプライン（Pull）](articles/03-feed-pipeline.md) | `v0.3` |
-| 4 | [Policy 層](articles/04-policy.md) | `v0.4` |
-| 5 | [Ranking 層](articles/05-ranking.md) | `v0.5` |
-| 6 | [Labeling Path](articles/06-labeling.md) | `v0.6` |
-| 7 | [Plugin registry](articles/07-plugin-registry.md) | `v0.7` |
-| 8 | [SideEffect & 通知](articles/08-side-effects.md) | `v0.8` |
-| 9 | [Fan-out feed](articles/09-fanout-feed.md) | `v0.9` |
-| 10 | [OutOfNetwork & pgvector](articles/10-out-of-network.md) | `v1.0` |
-| 11 | [ミュート・採点前フィルタ・作者多様性](articles/11-mutes-filters-diversity.md) | `v1.1` |
-| 12 | [返信 / スレッド](articles/12-replies-threads.md) | `v1.2` |
-| 13 | [興味なし / 非表示](articles/13-not-interested.md) | `v1.3` |
-| 14 | [Following 専用 TL](articles/14-following-timeline.md) | `v1.4` |
-| 15 | [Who to Follow](articles/15-who-to-follow.md) | `v1.5` |
-| まとめ | [第1〜15回の地図](articles/16-series-map.md) | （コードは `v1.5`） |
-
-## クイックスタート
+## 起動
 
 ```bash
-cd sns-tutorial-x
+cd sns-tutorial-x-api
 cp .env.example .env
 docker compose up --build
 ```
 
-別ターミナル:
-
 ```bash
 curl http://localhost:8000/health
-# {"status":"ok","version":"1.5.0"}
+# {"status":"ok","version":"2.0.0"}
 ```
 
-## 設計原則
+Vite 開発サーバ（`http://localhost:5173`）向けの CORS がデフォルトで開いています。`CORS_ORIGINS` で変更します。
 
-1. **Request Path / Labeling Path を分離** — TL 表示と投稿後処理を混ぜない
-2. **Policy ≠ Ranking** — 可視性と順序付けを別モジュールに
-3. **起動時 fail-fast / 実行時 degrade** — 設定ミスは起動で落とし、任意 enrich 失敗は続行
-4. **Feed = パイプライン段階** — home-mixer 型、Labeling = grox 型 plugin
+## このフォークで足したもの
+
+- CORS
+- 公開プロフィールから email を外す（`GET /users/{handle}`）
+- `PATCH /users/me`
+- フォロワー / フォロー一覧と件数
+- プロフィール投稿の cursor ページング
+- `POST /notifications/read`
+- フォロー時に過去投稿を `user_feed` へ埋め戻し（アンフォローで削除）
+- Compose の Postgres / Redis 永続ボリューム
+
+## テスト
+
+```bash
+pip install -e ".[dev]"
+pytest
+```

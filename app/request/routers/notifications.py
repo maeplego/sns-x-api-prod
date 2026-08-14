@@ -1,9 +1,9 @@
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -29,6 +29,10 @@ class NotificationsResponse(BaseModel):
     unread_count: int
 
 
+class MarkReadResponse(BaseModel):
+    updated: int
+
+
 @router.get("", response_model=NotificationsResponse)
 async def list_notifications(
     limit: int = Query(default=20, ge=1, le=100),
@@ -42,5 +46,29 @@ async def list_notifications(
         .limit(limit)
     )
     items = list(result.scalars().all())
-    unread = sum(1 for item in items if item.read_at is None)
-    return NotificationsResponse(items=items, unread_count=unread)
+    unread = await db.scalar(
+        select(func.count())
+        .select_from(Notification)
+        .where(
+            Notification.user_id == current_user.id,
+            Notification.read_at.is_(None),
+        )
+    )
+    return NotificationsResponse(items=items, unread_count=int(unread or 0))
+
+
+@router.post("/read", response_model=MarkReadResponse)
+async def mark_notifications_read(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> MarkReadResponse:
+    result = await db.execute(
+        update(Notification)
+        .where(
+            Notification.user_id == current_user.id,
+            Notification.read_at.is_(None),
+        )
+        .values(read_at=datetime.now(UTC))
+    )
+    await db.commit()
+    return MarkReadResponse(updated=result.rowcount or 0)

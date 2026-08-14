@@ -24,6 +24,8 @@ services:
       POSTGRES_DB: sns
     ports:
       - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U sns -d sns"]
       interval: 5s
@@ -34,6 +36,9 @@ services:
     image: redis:7-alpine
     ports:
       - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: ["redis-server", "--appendonly", "yes"]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -53,3 +58,8 @@ services:
       - ./app:/app/app:ro
       - ./ranking:/app/ranking:ro
     command: python -m app.labeling.worker
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:

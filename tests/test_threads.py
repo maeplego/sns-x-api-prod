@@ -73,7 +73,7 @@ async def test_reply_sets_parent_and_root_and_appears_in_thread(client: AsyncCli
     assert thread.json()["root_id"] == root_id
 
     profile = await client.get("/users/carol_th/posts")
-    assert [item["body"] for item in profile.json()] == []
+    assert [item["body"] for item in profile.json()["items"]] == []
 
 
 @pytest.mark.asyncio

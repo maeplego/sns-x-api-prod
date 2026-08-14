@@ -6,7 +6,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.models import Follow, User
+from app.core.social_models import Notification
 from app.request.auth import get_current_user
+from app.request.feed.backfill import backfill_followee_posts, remove_followee_from_feed
 from app.request.schemas import FollowResponse
 
 router = APIRouter(prefix="/follows", tags=["follows"])
@@ -37,6 +39,17 @@ async def follow_user(
 
     follow = Follow(follower_id=current_user.id, followee_id=user_id)
     db.add(follow)
+    await backfill_followee_posts(db, current_user.id, user_id)
+    db.add(
+        Notification(
+            user_id=user_id,
+            type="followed",
+            payload_json={
+                "follower_id": str(current_user.id),
+                "follower_handle": current_user.handle,
+            },
+        )
+    )
     await db.commit()
     await db.refresh(follow)
     return follow
@@ -59,4 +72,5 @@ async def unfollow_user(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not following")
 
     await db.delete(follow)
+    await remove_followee_from_feed(db, current_user.id, user_id)
     await db.commit()

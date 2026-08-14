@@ -46,6 +46,28 @@ class UserResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class UserPublicResponse(BaseModel):
+    id: uuid.UUID
+    handle: str
+    display_name: str
+    bio: str | None
+    is_private: bool
+    status: UserStatus
+    created_at: datetime
+    follower_count: int = 0
+    following_count: int = 0
+    is_following: bool = False
+    is_self: bool = False
+
+    model_config = {"from_attributes": True}
+
+
+class ProfileUpdateRequest(BaseModel):
+    display_name: str | None = Field(default=None, min_length=1, max_length=64)
+    bio: str | None = Field(default=None, max_length=500)
+    is_private: bool | None = None
+
+
 class PostCreateRequest(BaseModel):
     body: str = Field(min_length=1, max_length=2000)
     visibility: PostVisibility = PostVisibility.PUBLIC
@@ -93,6 +115,24 @@ class FollowResponse(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class UserListItem(BaseModel):
+    id: uuid.UUID
+    handle: str
+    display_name: str
+    bio: str | None
+    is_following: bool = False
+
+
+class UserListResponse(BaseModel):
+    items: list[UserListItem]
+    next_cursor: str | None = None
+
+
+class PostListResponse(BaseModel):
+    items: list[PostResponse]
+    next_cursor: str | None = None
 
 
 class BlockResponse(BaseModel):
