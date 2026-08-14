@@ -14,7 +14,15 @@ class EventBus(ABC):
 
 class RedisEventBus(EventBus):
     def __init__(self) -> None:
-        self._client = redis.from_url(settings.redis_url, decode_responses=True)
+        # redis-py 6 defaults socket_timeout to 5s. XREADGROUP block must exceed that
+        # or the idle worker dies and posts stay in `processing`.
+        self._client = redis.from_url(
+            settings.redis_url,
+            decode_responses=True,
+            socket_connect_timeout=5,
+            socket_timeout=None,
+            health_check_interval=0,
+        )
 
     async def ensure_group(self) -> None:
         try:

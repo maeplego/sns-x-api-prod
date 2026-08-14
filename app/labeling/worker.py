@@ -2,6 +2,9 @@ import asyncio
 import logging
 
 import structlog
+from redis.exceptions import ConnectionError as RedisConnectionError
+from redis.exceptions import RedisError
+from redis.exceptions import TimeoutError as RedisTimeoutError
 
 from app.core.config import settings
 from app.core.queue import RedisEventBus, get_event_bus
@@ -30,13 +33,22 @@ async def run_worker(consumer_name: str = "worker-1", block_ms: int = 5000) -> N
     logger.info("worker_started", stream=STREAM_KEY, group=CONSUMER_GROUP, consumer=consumer_name)
 
     while True:
-        entries = await client.xreadgroup(
-            groupname=CONSUMER_GROUP,
-            consumername=consumer_name,
-            streams={STREAM_KEY: ">"},
-            count=10,
-            block=block_ms,
-        )
+        try:
+            entries = await client.xreadgroup(
+                groupname=CONSUMER_GROUP,
+                consumername=consumer_name,
+                streams={STREAM_KEY: ">"},
+                count=10,
+                block=block_ms,
+            )
+        except RedisTimeoutError:
+            logger.warning("worker_read_timeout")
+            continue
+        except (RedisConnectionError, RedisError):
+            logger.exception("worker_redis_unavailable")
+            await asyncio.sleep(1)
+            continue
+
         if not entries:
             continue
 
