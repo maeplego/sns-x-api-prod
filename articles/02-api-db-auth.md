@@ -402,4 +402,4 @@ git checkout v0.2
 
 ---
 
-**シリーズ:** [第1回](01-architecture.md) ← **第2回** → 第3回
+**シリーズ:** [第1回](01-architecture.md) ← **第2回** → [第3回](03-feed-pipeline.md)
