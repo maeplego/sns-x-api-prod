@@ -10,6 +10,8 @@ from sqlalchemy.pool import StaticPool
 import app.core.database as database
 from app.core.database import get_db
 from app.core.models import Base
+from app.core.queue import set_event_bus
+from app.labeling.loading import load_all
 from app.main import app
 
 TEST_DATABASE_URL = "sqlite+aiosqlite://"
@@ -35,10 +37,13 @@ async def client():
             yield session
 
     app.dependency_overrides[get_db] = override_get_db
+    set_event_bus(None)
+    load_all()
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
 
     app.dependency_overrides.clear()
+    set_event_bus(None)
     await engine.dispose()

@@ -42,7 +42,7 @@ async def test_feed_shows_followed_user_posts(client: AsyncClient):
         headers=bob_headers,
         json={"body": "bob post for feed"},
     )
-    assert create_post.status_code == 201
+    assert create_post.status_code == 202
 
     feed = await client.get("/feed", headers=alice_headers)
     assert feed.status_code == 200

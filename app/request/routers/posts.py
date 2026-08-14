@@ -7,28 +7,40 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.models import Post, PostStatus, User
+from app.core.queue import get_event_bus
+from app.labeling.events import POST_CREATED
 from app.request.auth import get_current_user, get_optional_user
-from app.request.schemas import PostCreateRequest, PostResponse
+from app.request.schemas import PostAcceptedResponse, PostCreateRequest, PostResponse
 
 router = APIRouter(prefix="/posts", tags=["posts"])
 
 
-@router.post("", response_model=PostResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=PostAcceptedResponse, status_code=status.HTTP_202_ACCEPTED)
 async def create_post(
     body: PostCreateRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-) -> Post:
+) -> PostAcceptedResponse:
     post = Post(
         author_id=current_user.id,
         body=body.body,
         visibility=body.visibility,
-        status=PostStatus.PUBLISHED,
+        status=PostStatus.PROCESSING,
     )
     db.add(post)
     await db.commit()
     await db.refresh(post)
-    return post
+
+    await get_event_bus().publish(
+        POST_CREATED,
+        {"post_id": str(post.id), "author_id": str(current_user.id)},
+    )
+
+    return PostAcceptedResponse(
+        id=post.id,
+        author_id=post.author_id,
+        status=post.status,
+    )
 
 
 @router.get("/{post_id}", response_model=PostResponse)

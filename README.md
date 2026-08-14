@@ -16,7 +16,7 @@
 | 3 | [タイムラインパイプライン（Pull）](articles/03-feed-pipeline.md) | `v0.3` |
 | 4 | [Policy 層](articles/04-policy.md) | `v0.4` |
 | 5 | [Ranking 層](articles/05-ranking.md) | `v0.5` |
-| 6 | Labeling Path | `v0.6` |
+| 6 | [Labeling Path](articles/06-labeling.md) | `v0.6` |
 | 7 | Plugin registry | `v0.7` |
 | 8 | SideEffect & 通知 | `v0.8` |
 | 9 | Fan-out feed | `v0.9` |

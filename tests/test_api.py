@@ -47,12 +47,13 @@ async def test_signup_login_and_post(client: AsyncClient):
         headers=headers,
         json={"body": "hello sns-tutorial-x"},
     )
-    assert post.status_code == 201
-    assert post.json()["status"] == "published"
+    assert post.status_code == 202
+    assert post.json()["status"] == "processing"
     post_id = post.json()["id"]
 
     published = await client.get(f"/posts/{post_id}", headers=headers)
     assert published.status_code == 200
+    assert published.json()["status"] == "published"
     assert published.json()["body"] == "hello sns-tutorial-x"
 
     posts = await client.get("/users/alice/posts")

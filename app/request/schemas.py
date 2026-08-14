@@ -62,6 +62,13 @@ class PostResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class PostAcceptedResponse(BaseModel):
+    id: uuid.UUID
+    author_id: uuid.UUID
+    status: PostStatus
+    message: str = "Post accepted for processing"
+
+
 class FollowResponse(BaseModel):
     follower_id: uuid.UUID
     followee_id: uuid.UUID
