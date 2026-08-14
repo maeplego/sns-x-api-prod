@@ -390,6 +390,7 @@ class FeedPipeline:
         selector: Selector,
         blender: SourceBlender | None = None,
         conversation_deduper: bool = True,
+        rank: bool = True,
     ):
         self.query_hydrators = query_hydrators
         self.sources = sources
@@ -399,6 +400,7 @@ class FeedPipeline:
         self.selector = selector
         self.blender = blender
         self.conversation_deduper = conversation_deduper
+        self.rank = rank
 
     async def run(self, db: AsyncSession, query: FeedQuery) -> tuple[list[FeedCandidate], str | None]:
         stage_stats: dict[str, dict[str, float | int]] = {}
@@ -452,13 +454,20 @@ class FeedPipeline:
         }
 
         start = time.perf_counter()
-        for candidate in candidates:
-            candidate.seen = candidate.id in query.seen_post_ids
-        candidates = rank_candidates(query, candidates, self.weights)
-        stage_stats["Ranker"] = {
-            "duration_ms": (time.perf_counter() - start) * 1000,
-            "count": len(candidates),
-        }
+        if self.rank:
+            for candidate in candidates:
+                candidate.seen = candidate.id in query.seen_post_ids
+            candidates = rank_candidates(query, candidates, self.weights)
+            stage_stats["Ranker"] = {
+                "duration_ms": (time.perf_counter() - start) * 1000,
+                "count": len(candidates),
+            }
+        else:
+            candidates.sort(key=lambda c: (c.created_at, c.id), reverse=True)
+            stage_stats["ChronologicalSort"] = {
+                "duration_ms": (time.perf_counter() - start) * 1000,
+                "count": len(candidates),
+            }
 
         if self.conversation_deduper:
             start = time.perf_counter()
@@ -501,4 +510,27 @@ def build_feed_pipeline(weights: RankingWeights | None = None) -> FeedPipeline:
         policy=PolicyFilter(home_feed_policy()),
         weights=resolved_weights,
         selector=CursorSelector(),
+    )
+
+
+def build_following_pipeline(weights: RankingWeights | None = None) -> FeedPipeline:
+    from app.policy.rules import following_feed_policy
+
+    resolved_weights = weights or load_weights()
+    return FeedPipeline(
+        query_hydrators=[
+            FollowingQueryHydrator(),
+            BlockedUserIdsQueryHydrator(),
+            MutedUserIdsQueryHydrator(),
+            MutedKeywordsQueryHydrator(),
+            FeedbackQueryHydrator(),
+        ],
+        sources=[ThunderSource()],
+        hydrators=[AuthorHydrator(), ParentHydrator(), EngagementHydrator()],
+        policy=PolicyFilter(following_feed_policy()),
+        weights=resolved_weights,
+        selector=CursorSelector(),
+        blender=None,
+        conversation_deduper=False,
+        rank=False,
     )

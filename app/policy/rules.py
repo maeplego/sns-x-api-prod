@@ -164,6 +164,21 @@ def home_feed_policy() -> list[Rule]:
     ]
 
 
+def following_feed_policy() -> list[Rule]:
+    """Chronological Following surface: no 48h cutoff, no OON reply rule."""
+    return [
+        HiddenPostRule(),
+        SelfPostRule(),
+        BlockedAuthorRule(),
+        MutedAuthorRule(),
+        MutedKeywordRule(),
+        SuspendedAuthorRule(),
+        PrivateAccountRule(),
+        FollowersOnlyPostRule(),
+        ReplyAncillaryRule(),
+    ]
+
+
 def thread_policy() -> list[Rule]:
     """Thread view shows own posts and old posts; it still hides blocks/mutes."""
     return [

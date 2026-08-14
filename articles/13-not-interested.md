@@ -258,4 +258,4 @@ not_interested_author: -0.40
 
 ---
 
-**シリーズ:** [第12回](12-replies-threads.md) ← **第13回**
+**シリーズ:** [第12回](12-replies-threads.md) ← **第13回** → [第14回](14-following-timeline.md)

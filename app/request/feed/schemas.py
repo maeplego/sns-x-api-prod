@@ -18,3 +18,4 @@ class FeedPostItem(BaseModel):
 class FeedResponse(BaseModel):
     items: list[FeedPostItem]
     next_cursor: str | None = None
+    surface: str = "for_you"
