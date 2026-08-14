@@ -37,6 +37,8 @@ def score_candidate(
         + weights.author_affinity * candidate.author_affinity
         + weights.similarity * (candidate.similarity_score or 0.0)
         + weights.seen_penalty * (1.0 if candidate.seen else 0.0)
+        + weights.not_interested_author
+        * (1.0 if candidate.author_id in query.not_interested_author_ids else 0.0)
     )
 
 

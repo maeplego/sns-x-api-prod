@@ -273,4 +273,4 @@ OON 検索の WHERE に `Post.parent_id.is_(None)`。
 
 ---
 
-**シリーズ:** [第11回](11-mutes-filters-diversity.md) ← **第12回**
+**シリーズ:** [第11回](11-mutes-filters-diversity.md) ← **第12回** → [第13回](13-not-interested.md)

@@ -14,6 +14,7 @@ class RankingWeights:
     author_affinity: float
     similarity: float
     seen_penalty: float
+    not_interested_author: float
     author_diversity_decay: float
     author_diversity_floor: float
 
@@ -33,6 +34,7 @@ def load_weights(path: Path = WEIGHTS_PATH) -> RankingWeights:
         "author_affinity",
         "similarity",
         "seen_penalty",
+        "not_interested_author",
         "author_diversity_decay",
         "author_diversity_floor",
     )
@@ -47,6 +49,7 @@ def load_weights(path: Path = WEIGHTS_PATH) -> RankingWeights:
         author_affinity=float(raw["author_affinity"]),
         similarity=float(raw["similarity"]),
         seen_penalty=float(raw["seen_penalty"]),
+        not_interested_author=float(raw["not_interested_author"]),
         author_diversity_decay=float(raw["author_diversity_decay"]),
         author_diversity_floor=float(raw["author_diversity_floor"]),
     )

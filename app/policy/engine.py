@@ -19,6 +19,7 @@ class PolicyContext:
     candidate: FeedCandidate
     muted_user_ids: set[uuid.UUID] = field(default_factory=set)
     muted_keywords: set[str] = field(default_factory=set)
+    hidden_post_ids: set[uuid.UUID] = field(default_factory=set)
     now: datetime | None = None
 
 

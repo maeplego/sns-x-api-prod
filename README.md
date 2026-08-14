@@ -5,7 +5,7 @@
 - **スコープ:** API のみ（curl / HTTPie / OpenAPI）
 - **スタック:** FastAPI + PostgreSQL + Redis
 - **進め方:** 各回の記事を上から順にコピペする。記事末尾にその回の完成形ファイルを掲載
-- **タグ:** `v0.1` … `v1.2`（各回のテスト通過後に自動付与）
+- **タグ:** `v0.1` … `v1.3`（各回のテスト通過後に自動付与）
 
 ## シリーズ目次
 
@@ -23,6 +23,7 @@
 | 10 | [OutOfNetwork & pgvector](articles/10-out-of-network.md) | `v1.0` |
 | 11 | [ミュート・採点前フィルタ・作者多様性](articles/11-mutes-filters-diversity.md) | `v1.1` |
 | 12 | [返信 / スレッド](articles/12-replies-threads.md) | `v1.2` |
+| 13 | [興味なし / 非表示](articles/13-not-interested.md) | `v1.3` |
 
 ## クイックスタート
 
@@ -36,7 +37,7 @@ docker compose up --build
 
 ```bash
 curl http://localhost:8000/health
-# {"status":"ok","version":"1.2.0"}
+# {"status":"ok","version":"1.3.0"}
 ```
 
 ## 設計原則

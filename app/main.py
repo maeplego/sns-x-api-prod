@@ -13,6 +13,7 @@ from app.request.feed.router import router as feed_router
 from app.request.routers import (
     auth,
     blocks,
+    feedback,
     follows,
     likes,
     muted_keywords,
@@ -61,7 +62,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="sns-tutorial-x",
     description="Personal SNS API tutorial (x-algorithm inspired, copy-paste edition)",
-    version="1.2.0",
+    version="1.3.0",
     lifespan=lifespan,
 )
 
@@ -72,6 +73,7 @@ app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(posts.router)
 app.include_router(likes.router)
+app.include_router(feedback.router)
 app.include_router(notifications.router)
 app.include_router(blocks.router)
 app.include_router(mutes.router)
@@ -81,4 +83,4 @@ app.include_router(follows.router)
 
 @app.get("/health")
 async def health() -> dict[str, str]:
-    return {"status": "ok", "version": "1.2.0"}
+    return {"status": "ok", "version": "1.3.0"}

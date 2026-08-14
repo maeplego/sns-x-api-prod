@@ -1,7 +1,8 @@
+import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, UniqueConstraint, func
+from sqlalchemy import JSON, DateTime, Enum, ForeignKey, Integer, String, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -86,3 +87,28 @@ class UserFeedEntry(Base):
         UUID(as_uuid=True), ForeignKey("users.id"), index=True
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+
+
+class FeedbackKind(str, enum.Enum):
+    HIDE = "hide"
+    NOT_INTERESTED = "not_interested"
+
+
+class PostFeedback(Base):
+    """Viewer-private negative signal. Never notified to the author."""
+
+    __tablename__ = "post_feedback"
+    __table_args__ = (UniqueConstraint("viewer_id", "post_id", name="uq_post_feedback_pair"),)
+
+    viewer_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), primary_key=True
+    )
+    post_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("posts.id"), primary_key=True
+    )
+    kind: Mapped[FeedbackKind] = mapped_column(
+        Enum(FeedbackKind, name="feedback_kind", native_enum=False)
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )

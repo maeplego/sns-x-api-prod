@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.embedding_models import PostEmbedding
 from app.core.models import Block, Follow, Mute, Post, PostEngagement, PostStatus, User
-from app.core.social_models import FeedImpression, MutedKeyword, UserFeedEntry
+from app.core.social_models import FeedImpression, FeedbackKind, MutedKeyword, PostFeedback, UserFeedEntry
 from app.embedding.encoder import mean_embedding
 from app.embedding.search import search_similar_posts
 from app.policy.engine import PolicyContext, PolicyVerdict, Rule, evaluate_rules
@@ -114,6 +114,24 @@ class MutedKeywordsQueryHydrator(QueryHydrator):
             select(MutedKeyword.keyword).where(MutedKeyword.user_id == query.viewer_id)
         )
         query.muted_keywords = {row[0] for row in result.all()}
+        return query
+
+
+class FeedbackQueryHydrator(QueryHydrator):
+    async def hydrate(self, db: AsyncSession, query: FeedQuery) -> FeedQuery:
+        result = await db.execute(
+            select(PostFeedback, Post)
+            .join(Post, Post.id == PostFeedback.post_id)
+            .where(PostFeedback.viewer_id == query.viewer_id)
+        )
+        hidden: set = set()
+        not_interested_authors: set = set()
+        for feedback, post in result.all():
+            hidden.add(feedback.post_id)
+            if feedback.kind == FeedbackKind.NOT_INTERESTED:
+                not_interested_authors.add(post.author_id)
+        query.hidden_post_ids = hidden
+        query.not_interested_author_ids = not_interested_authors
         return query
 
 
@@ -323,6 +341,7 @@ class PolicyFilter:
                 blocked_user_ids=query.blocked_user_ids,
                 muted_user_ids=query.muted_user_ids,
                 muted_keywords=query.muted_keywords,
+                hidden_post_ids=query.hidden_post_ids,
                 candidate=candidate,
             )
             verdict, rule_name = evaluate_rules(self.rules, context)
@@ -472,6 +491,7 @@ def build_feed_pipeline(weights: RankingWeights | None = None) -> FeedPipeline:
             BlockedUserIdsQueryHydrator(),
             MutedUserIdsQueryHydrator(),
             MutedKeywordsQueryHydrator(),
+            FeedbackQueryHydrator(),
             SeenPostsQueryHydrator(),
             ViewerInterestQueryHydrator(),
         ],

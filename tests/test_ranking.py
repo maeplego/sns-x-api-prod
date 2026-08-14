@@ -32,6 +32,7 @@ def test_recency_weight_changes_order():
         author_affinity=0.0,
         similarity=0.0,
         seen_penalty=0.0,
+        not_interested_author=0.0,
         author_diversity_decay=1.0,
         author_diversity_floor=1.0,
     )
@@ -50,6 +51,7 @@ def _neutral_weights(**overrides: float) -> RankingWeights:
         author_affinity=0.0,
         similarity=0.0,
         seen_penalty=0.0,
+        not_interested_author=0.0,
         author_diversity_decay=0.5,
         author_diversity_floor=0.25,
     )
@@ -91,4 +93,21 @@ def test_author_diversity_lets_other_authors_interrupt_a_streak():
     assert [c.body for c in ranked] == ["a1", "b1", "a2"]
     assert ranked[1].rank_score == ranked[1].similarity_score
     assert ranked[2].rank_score == 0.9 * 0.5
+
+
+def test_not_interested_author_penalty_lowers_that_author():
+    viewer_id = uuid4()
+    author_a = uuid4()
+    author_b = uuid4()
+    now = datetime.now(UTC)
+    a1 = FeedCandidate(id=uuid4(), author_id=author_a, body="a", created_at=now, similarity_score=1.0)
+    b1 = FeedCandidate(id=uuid4(), author_id=author_b, body="b", created_at=now, similarity_score=0.9)
+    query = FeedQuery(
+        viewer_id=viewer_id,
+        following_ids={author_a, author_b, viewer_id},
+        not_interested_author_ids={author_a},
+    )
+    weights = _neutral_weights(similarity=1.0, not_interested_author=-0.4)
+    ranked = rank_candidates(query, [a1, b1], weights, now=now)
+    assert [c.body for c in ranked] == ["b", "a"]
 

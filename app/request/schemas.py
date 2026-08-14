@@ -130,3 +130,16 @@ class MutedKeywordResponse(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class FeedbackCreateRequest(BaseModel):
+    kind: str = Field(pattern="^(hide|not_interested)$")
+
+
+class FeedbackResponse(BaseModel):
+    viewer_id: uuid.UUID
+    post_id: uuid.UUID
+    kind: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}

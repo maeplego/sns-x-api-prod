@@ -6,6 +6,15 @@ from app.policy.engine import PolicyContext, PolicyVerdict, Rule
 MAX_AGE_HOURS = 48
 
 
+class HiddenPostRule(Rule):
+    name = "HiddenPostRule"
+
+    def evaluate(self, context: PolicyContext) -> PolicyVerdict:
+        if context.candidate.id in context.hidden_post_ids:
+            return PolicyVerdict.DROP
+        return PolicyVerdict.ALLOW
+
+
 class SelfPostRule(Rule):
     name = "SelfPostRule"
 
@@ -141,6 +150,7 @@ class ReplyAncillaryRule(Rule):
 
 def home_feed_policy() -> list[Rule]:
     return [
+        HiddenPostRule(),
         SelfPostRule(),
         AgeRule(),
         BlockedAuthorRule(),
