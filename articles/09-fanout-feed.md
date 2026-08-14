@@ -63,4 +63,4 @@ Policy テストは「投稿前にフォローする」よう更新（fan-out �
 
 ---
 
-**シリーズ:** [第8回](08-side-effects.md) ← **第9回** → 第10回
+**シリーズ:** [第8回](08-side-effects.md) ← **第9回** → [第10回](10-out-of-network.md)

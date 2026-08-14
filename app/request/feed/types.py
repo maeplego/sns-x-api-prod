@@ -13,6 +13,7 @@ class FeedQuery:
     following_ids: set[uuid.UUID] = field(default_factory=set)
     blocked_user_ids: set[uuid.UUID] = field(default_factory=set)
     seen_post_ids: set[uuid.UUID] = field(default_factory=set)
+    viewer_interest_vector: list[float] | None = None
     cursor: tuple[datetime, uuid.UUID] | None = None
     limit: int = 20
 
@@ -33,6 +34,8 @@ class FeedCandidate:
     author_affinity: float = 0.0
     seen: bool = False
     rank_score: float | None = None
+    source: str = "in_network"
+    similarity_score: float | None = None
 
 
 def encode_cursor(created_at: datetime, post_id: uuid.UUID) -> str:

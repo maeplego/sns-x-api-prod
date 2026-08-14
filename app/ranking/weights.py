@@ -12,6 +12,7 @@ class RankingWeights:
     in_network_boost: float
     engagement: float
     author_affinity: float
+    similarity: float
     seen_penalty: float
 
 
@@ -23,7 +24,7 @@ def load_weights(path: Path = WEIGHTS_PATH) -> RankingWeights:
     if not isinstance(raw, dict):
         raise ValueError("weights.yaml must be a mapping")
 
-    required = ("recency", "in_network_boost", "engagement", "author_affinity", "seen_penalty")
+    required = ("recency", "in_network_boost", "engagement", "author_affinity", "similarity", "seen_penalty")
     missing = [key for key in required if key not in raw]
     if missing:
         raise ValueError(f"weights.yaml missing keys: {missing}")
@@ -33,5 +34,6 @@ def load_weights(path: Path = WEIGHTS_PATH) -> RankingWeights:
         in_network_boost=float(raw["in_network_boost"]),
         engagement=float(raw["engagement"]),
         author_affinity=float(raw["author_affinity"]),
+        similarity=float(raw["similarity"]),
         seen_penalty=float(raw["seen_penalty"]),
     )

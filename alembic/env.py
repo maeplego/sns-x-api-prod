@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from app.core.config import settings
 from app.core.models import Base
 import app.core.social_models  # noqa: F401
+import app.core.embedding_models  # noqa: F401
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.async_database_url)

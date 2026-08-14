@@ -20,7 +20,7 @@
 | 7 | [Plugin registry](articles/07-plugin-registry.md) | `v0.7` |
 | 8 | [SideEffect & 通知](articles/08-side-effects.md) | `v0.8` |
 | 9 | [Fan-out feed](articles/09-fanout-feed.md) | `v0.9` |
-| 10 | OutOfNetwork & pgvector | `v1.0` |
+| 10 | [OutOfNetwork & pgvector](articles/10-out-of-network.md) | `v1.0` |
 
 ## クイックスタート
 
@@ -34,7 +34,7 @@ docker compose up --build
 
 ```bash
 curl http://localhost:8000/health
-# {"status":"ok","version":"0.1.0"}
+# {"status":"ok","version":"1.0.0"}
 ```
 
 ## 設計原則

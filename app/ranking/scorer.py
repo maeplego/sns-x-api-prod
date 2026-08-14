@@ -34,6 +34,7 @@ def score_candidate(
         + weights.in_network_boost * in_network
         + weights.engagement * engagement_signal(candidate.like_count, candidate.reply_count)
         + weights.author_affinity * candidate.author_affinity
+        + weights.similarity * (candidate.similarity_score or 0.0)
         + weights.seen_penalty * (1.0 if candidate.seen else 0.0)
     )
 

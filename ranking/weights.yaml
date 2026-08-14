@@ -1,6 +1,7 @@
 # Default ranking weights — used from Part 5 onward.
-recency: 0.35
+recency: 0.30
 in_network_boost: 0.25
-engagement: 0.20
-author_affinity: 0.15
+engagement: 0.15
+author_affinity: 0.10
+similarity: 0.20
 seen_penalty: -0.30

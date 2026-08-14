@@ -30,6 +30,7 @@ def test_recency_weight_changes_order():
         in_network_boost=0.0,
         engagement=0.0,
         author_affinity=0.0,
+        similarity=0.0,
         seen_penalty=0.0,
     )
     ranked = rank_candidates(query, [older, newer], recency_heavy, now=now)

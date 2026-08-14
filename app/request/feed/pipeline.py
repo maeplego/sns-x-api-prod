@@ -5,11 +5,15 @@ import structlog
 from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.embedding_models import PostEmbedding
 from app.core.models import Block, Follow, Post, PostEngagement, PostStatus, User
 from app.core.social_models import FeedImpression, UserFeedEntry
+from app.embedding.encoder import mean_embedding
+from app.embedding.search import search_similar_posts
 from app.policy.engine import PolicyContext, PolicyVerdict, Rule, evaluate_rules
 from app.ranking.scorer import rank_candidates, score_candidate
 from app.ranking.weights import RankingWeights, load_weights
+from app.request.feed.blender import SourceBlender
 from app.request.feed.types import FeedCandidate, FeedQuery, encode_cursor
 
 logger = structlog.get_logger(__name__)
@@ -21,6 +25,8 @@ class QueryHydrator(ABC):
 
 
 class Source(ABC):
+    name: str = "source"
+
     @abstractmethod
     async def fetch(self, db: AsyncSession, query: FeedQuery) -> list[FeedCandidate]: ...
 
@@ -67,7 +73,29 @@ class SeenPostsQueryHydrator(QueryHydrator):
         return query
 
 
+class ViewerInterestQueryHydrator(QueryHydrator):
+    async def hydrate(self, db: AsyncSession, query: FeedQuery) -> FeedQuery:
+        result = await db.execute(
+            select(UserFeedEntry.post_id)
+            .where(UserFeedEntry.user_id == query.viewer_id)
+            .order_by(UserFeedEntry.created_at.desc())
+            .limit(20)
+        )
+        post_ids = [row[0] for row in result.all()]
+        if not post_ids:
+            query.viewer_interest_vector = None
+            return query
+
+        result = await db.execute(
+            select(PostEmbedding.embedding).where(PostEmbedding.post_id.in_(post_ids))
+        )
+        embeddings = [row[0] for row in result.all()]
+        query.viewer_interest_vector = mean_embedding(embeddings)
+        return query
+
+
 class ThunderSource(Source):
+    name = "thunder"
     """Read pre-materialized in-network candidates from user_feed."""
 
     async def fetch(self, db: AsyncSession, query: FeedQuery) -> list[FeedCandidate]:
@@ -108,7 +136,31 @@ class ThunderSource(Source):
         ]
 
 
+class OutOfNetworkSource(Source):
+    name = "oon"
+
+    async def fetch(self, db: AsyncSession, query: FeedQuery) -> list[FeedCandidate]:
+        if query.viewer_interest_vector is None:
+            return []
+
+        fetch_limit = max(query.limit + 1, int(query.limit * 0.3) + 5)
+        rows = await search_similar_posts(db, query, limit=fetch_limit)
+        return [
+            FeedCandidate(
+                id=post.id,
+                author_id=post.author_id,
+                body=post.body,
+                created_at=post.created_at,
+                visibility=post.visibility,
+                source="oon",
+                similarity_score=similarity,
+            )
+            for post, similarity in rows
+        ]
+
+
 class InNetworkSource(Source):
+    name = "in_network"
     async def fetch(self, db: AsyncSession, query: FeedQuery) -> list[FeedCandidate]:
         if not query.following_ids:
             return []
@@ -249,6 +301,7 @@ class FeedPipeline:
         policy: PolicyFilter,
         weights: RankingWeights,
         selector: Selector,
+        blender: SourceBlender | None = None,
     ):
         self.query_hydrators = query_hydrators
         self.sources = sources
@@ -256,6 +309,7 @@ class FeedPipeline:
         self.policy = policy
         self.weights = weights
         self.selector = selector
+        self.blender = blender
 
     async def run(self, db: AsyncSession, query: FeedQuery) -> tuple[list[FeedCandidate], str | None]:
         stage_stats: dict[str, dict[str, float | int]] = {}
@@ -268,15 +322,27 @@ class FeedPipeline:
                 "following_count": len(query.following_ids),
             }
 
-        candidates: list[FeedCandidate] = []
+        batches: dict[str, list[FeedCandidate]] = {}
         for source in self.sources:
             start = time.perf_counter()
             batch = await source.fetch(db, query)
-            candidates.extend(batch)
+            batches[source.name] = batch
             stage_stats[source.__class__.__name__] = {
                 "duration_ms": (time.perf_counter() - start) * 1000,
                 "count": len(batch),
             }
+
+        start = time.perf_counter()
+        if self.blender is not None:
+            candidates = self.blender.blend(query, batches)
+            stage_stats["SourceBlender"] = {
+                "duration_ms": (time.perf_counter() - start) * 1000,
+                "count": len(candidates),
+            }
+        else:
+            candidates = []
+            for batch in batches.values():
+                candidates.extend(batch)
 
         for hydrator in self.hydrators:
             start = time.perf_counter()
@@ -326,8 +392,10 @@ def build_feed_pipeline(weights: RankingWeights | None = None) -> FeedPipeline:
             FollowingQueryHydrator(),
             BlockedUserIdsQueryHydrator(),
             SeenPostsQueryHydrator(),
+            ViewerInterestQueryHydrator(),
         ],
-        sources=[ThunderSource()],
+        sources=[ThunderSource(), OutOfNetworkSource()],
+        blender=SourceBlender(oon_ratio=0.3),
         hydrators=[AuthorHydrator(), EngagementHydrator()],
         policy=PolicyFilter(home_feed_policy()),
         weights=resolved_weights,
