@@ -10,6 +10,7 @@ name = "sns-x-api"
 version = "2.1.0"
 description = "Product SNS forked from sns-tutorial-x-api with indie VF / ranking / Under the Hood"
 readme = "README.md"
+license = "MIT"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115.0",

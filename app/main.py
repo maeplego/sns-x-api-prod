@@ -102,4 +102,4 @@ async def unhandled_exception_handler(_request: Request, exc: Exception) -> JSON
 
 @app.get("/health")
 async def health() -> dict[str, str]:
-    return {"status": "ok", "version": "2.0.0"}
+    return {"status": "ok", "version": "2.1.0"}
