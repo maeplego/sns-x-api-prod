@@ -1,16 +1,19 @@
 import uuid
 
+from typing import Literal
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.models import Follow, Post, PostStatus, PostVisibility, User
+from app.core.models import Block, Follow, Mute, Post, PostStatus, PostVisibility, User
+from app.core.social_models import Like
 from app.request.auth import get_current_user, get_optional_user
 from app.request.feed.types import decode_cursor, encode_cursor
+from app.request.post_cards import build_post_cards
 from app.request.schemas import (
     PostListResponse,
-    PostResponse,
     ProfileUpdateRequest,
     UserListItem,
     UserListResponse,
@@ -92,8 +95,28 @@ async def get_user_by_handle(
     follower_count, following_count = await _counts(db, user.id)
     is_self = current_user is not None and current_user.id == user.id
     following = False
+    blocking = False
+    muting = False
     if current_user is not None and not is_self:
         following = await _is_following(db, current_user.id, user.id)
+        blocking = (
+            await db.scalar(
+                select(Block).where(
+                    Block.blocker_id == current_user.id,
+                    Block.blocked_id == user.id,
+                )
+            )
+            is not None
+        )
+        muting = (
+            await db.scalar(
+                select(Mute).where(
+                    Mute.muter_id == current_user.id,
+                    Mute.muted_id == user.id,
+                )
+            )
+            is not None
+        )
     return UserPublicResponse(
         id=user.id,
         handle=user.handle,
@@ -106,6 +129,8 @@ async def get_user_by_handle(
         following_count=following_count,
         is_following=following,
         is_self=is_self,
+        is_blocking=blocking,
+        is_muting=muting,
     )
 
 
@@ -114,6 +139,7 @@ async def get_user_posts(
     handle: str,
     cursor: str | None = Query(default=None),
     limit: int = Query(default=20, ge=1, le=100),
+    tab: Literal["posts", "replies"] = Query(default="posts"),
     db: AsyncSession = Depends(get_db),
     current_user: User | None = Depends(get_optional_user),
 ) -> PostListResponse:
@@ -132,11 +158,14 @@ async def get_user_posts(
             Post.author_id == user.id,
             Post.deleted_at.is_(None),
             Post.status == PostStatus.PUBLISHED,
-            Post.parent_id.is_(None),
         )
         .order_by(Post.created_at.desc(), Post.id.desc())
         .limit(limit + 1)
     )
+    if tab == "replies":
+        stmt = stmt.where(Post.parent_id.is_not(None))
+    else:
+        stmt = stmt.where(Post.parent_id.is_(None))
     if not is_self and not viewer_follows:
         stmt = stmt.where(Post.visibility == PostVisibility.PUBLIC)
 
@@ -159,7 +188,54 @@ async def get_user_posts(
         next_cursor = encode_cursor(last.created_at, last.id)
 
     return PostListResponse(
-        items=[PostResponse.model_validate(post) for post in page],
+        items=await build_post_cards(db, page, current_user.id if current_user else None),
+        next_cursor=next_cursor,
+    )
+
+
+@router.get("/{handle}/likes", response_model=PostListResponse)
+async def get_user_likes(
+    handle: str,
+    cursor: str | None = Query(default=None),
+    limit: int = Query(default=20, ge=1, le=100),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> PostListResponse:
+    user = await _get_user_by_handle(db, handle)
+    if current_user.id != user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Likes are private")
+
+    stmt = (
+        select(Post, Like.created_at)
+        .join(Like, Like.post_id == Post.id)
+        .where(
+            Like.user_id == user.id,
+            Post.deleted_at.is_(None),
+            Post.status == PostStatus.PUBLISHED,
+        )
+        .order_by(Like.created_at.desc(), Post.id.desc())
+        .limit(limit + 1)
+    )
+    parsed = _parse_cursor(cursor)
+    if parsed is not None:
+        cursor_time, cursor_id = parsed
+        stmt = stmt.where(
+            or_(
+                Like.created_at < cursor_time,
+                and_(Like.created_at == cursor_time, Post.id < cursor_id),
+            )
+        )
+
+    rows = list((await db.execute(stmt)).all())
+    has_more = len(rows) > limit
+    page = rows[:limit]
+    next_cursor = None
+    if has_more and page:
+        last_post, last_liked_at = page[-1]
+        next_cursor = encode_cursor(last_liked_at, last_post.id)
+
+    return PostListResponse(
+        items=await build_post_cards(db, [row[0] for row in page], current_user.id),
         next_cursor=next_cursor,
     )
 

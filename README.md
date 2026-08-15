@@ -1,36 +1,21 @@
-# sns-tutorial-x-api
+# sns-x-api
 
-[sns-tutorial-x](../sns-tutorial-x)（`v1.5`）の **プロダクト用フォーク** です。チュートリアル本体は凍結したまま、フロント（`sns-tutorial-x-frontend`）から叩く API をここに足します。
+Fork of `sns-tutorial-x-api` with indie Visibility Filtering, ranking tweaks, and Under the Hood.
 
-## 起動
+## New in this fork
+
+- Safety labels: `spam_suspect` / `nsfw` / `do_not_amplify` (OON / For You out-of-network drops)
+- Account `cred_score` (Agatha / user-cred lite)
+- Ranking: OON discount, low-cred penalty, stronger author diversity
+- Embedding retrieval: mute / label / similarity floor / per-author cap
+- `GET /under-the-hood` transparency report
+
+## Run
 
 ```bash
-cd sns-tutorial-x-api
-cp .env.example .env
 docker compose up --build
 ```
 
-```bash
-curl http://localhost:8000/health
-# {"status":"ok","version":"2.0.0"}
-```
+API: http://localhost:8001 (host) — does not collide with tutorial on 8000.
 
-Vite 開発サーバ（`http://localhost:5173`）向けの CORS がデフォルトで開いています。`CORS_ORIGINS` で変更します。
-
-## このフォークで足したもの
-
-- CORS
-- 公開プロフィールから email を外す（`GET /users/{handle}`）
-- `PATCH /users/me`
-- フォロワー / フォロー一覧と件数
-- プロフィール投稿の cursor ページング
-- `POST /notifications/read`
-- フォロー時に過去投稿を `user_feed` へ埋め戻し（アンフォローで削除）
-- Compose の Postgres / Redis 永続ボリューム
-
-## テスト
-
-```bash
-pip install -e ".[dev]"
-pytest
-```
+Upstream tutorial remote: `upstream` → `sns-tutorial-x-api`.

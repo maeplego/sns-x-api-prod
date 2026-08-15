@@ -94,6 +94,9 @@ async def test_like_creates_notification(client: AsyncClient):
     body = notifications.json()
     assert body["unread_count"] >= 1
     assert body["items"][0]["type"] == "post_liked"
+    posts = body["items"][0]["payload_json"]["posts"]
+    assert posts[0]["body"] == "like me"
+    assert posts[0]["id"] == post_id
 
     async with database.SessionLocal() as db:
         count = await db.scalar(select(func.count()).select_from(Notification))

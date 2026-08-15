@@ -203,5 +203,8 @@ async def test_following_keeps_root_and_reply(client: AsyncClient):
     assert "following reply" not in for_you_bodies
 
     following = await client.get("/feed/following", headers=alice_headers)
-    following_bodies = [item["body"] for item in following.json()["items"]]
+    following_posts = [item for item in following.json()["items"] if item["kind"] == "post"]
+    following_bodies = [item["body"] for item in following_posts]
     assert following_bodies == ["following reply", "following root"]
+    reply_card = next(item for item in following_posts if item["body"] == "following reply")
+    assert reply_card["parent_author_handle"] == "bob_flw_dd"

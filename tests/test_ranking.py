@@ -33,6 +33,8 @@ def test_recency_weight_changes_order():
         similarity=0.0,
         seen_penalty=0.0,
         not_interested_author=0.0,
+        oon_discount=1.0,
+        low_cred_penalty=0.0,
         author_diversity_decay=1.0,
         author_diversity_floor=1.0,
     )
@@ -52,6 +54,8 @@ def _neutral_weights(**overrides: float) -> RankingWeights:
         similarity=0.0,
         seen_penalty=0.0,
         not_interested_author=0.0,
+        oon_discount=1.0,
+        low_cred_penalty=0.0,
         author_diversity_decay=0.5,
         author_diversity_floor=0.25,
     )

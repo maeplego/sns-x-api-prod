@@ -1,4 +1,5 @@
 import time
+import uuid
 from abc import ABC, abstractmethod
 
 import structlog
@@ -7,14 +8,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.embedding_models import PostEmbedding
 from app.core.models import Block, Follow, Mute, Post, PostEngagement, PostStatus, User
-from app.core.social_models import FeedImpression, FeedbackKind, MutedKeyword, PostFeedback, UserFeedEntry
+from app.core.safety_models import SafetyTargetType
+from app.core.social_models import FeedImpression, FeedbackKind, Like, MutedKeyword, PostFeedback, UserFeedEntry
 from app.embedding.encoder import mean_embedding
 from app.embedding.search import search_similar_posts
 from app.policy.engine import PolicyContext, PolicyVerdict, Rule, evaluate_rules
 from app.ranking.scorer import rank_candidates
 from app.ranking.weights import RankingWeights, load_weights
 from app.request.feed.blender import SourceBlender
-from app.request.feed.types import FeedCandidate, FeedQuery, encode_cursor
+from app.request.feed.types import FeedCandidate, FeedQuery, ReferencedPost, encode_cursor
+from app.safety.labels import labels_for_targets
 
 logger = structlog.get_logger(__name__)
 
@@ -28,6 +31,8 @@ def _from_post(post: Post, **overrides) -> FeedCandidate:
         visibility=post.visibility,
         parent_id=post.parent_id,
         root_id=post.root_id,
+        quote_of_id=post.quote_of_id,
+        repost_of_id=post.repost_of_id,
     )
     values.update(overrides)
     return FeedCandidate(**values)
@@ -161,11 +166,15 @@ class ViewerInterestQueryHydrator(QueryHydrator):
             query.viewer_interest_vector = None
             return query
 
-        result = await db.execute(
-            select(PostEmbedding.embedding).where(PostEmbedding.post_id.in_(post_ids))
-        )
-        embeddings = [row[0] for row in result.all()]
-        query.viewer_interest_vector = mean_embedding(embeddings)
+        try:
+            result = await db.execute(
+                select(PostEmbedding.embedding).where(PostEmbedding.post_id.in_(post_ids))
+            )
+            embeddings = [row[0] for row in result.all()]
+            query.viewer_interest_vector = mean_embedding(embeddings)
+        except Exception:
+            logger.exception("viewer_interest_failed")
+            query.viewer_interest_vector = None
         return query
 
 
@@ -213,7 +222,11 @@ class OutOfNetworkSource(Source):
             return []
 
         fetch_limit = max(query.limit + 1, int(query.limit * 0.3) + 5)
-        rows = await search_similar_posts(db, query, limit=fetch_limit)
+        try:
+            rows = await search_similar_posts(db, query, limit=fetch_limit)
+        except Exception:
+            logger.exception("oon_search_failed")
+            return []
         return [
             _from_post(post, source="oon", similarity_score=similarity)
             for post, similarity in rows
@@ -269,6 +282,27 @@ class AuthorHydrator(Hydrator):
             candidate.author_display_name = author.display_name
             candidate.author_is_private = author.is_private
             candidate.author_status = author.status
+            candidate.author_cred_score = float(author.cred_score)
+        return candidates
+
+
+class SafetyLabelHydrator(Hydrator):
+    async def enrich(
+        self, db: AsyncSession, query: FeedQuery, candidates: list[FeedCandidate]
+    ) -> list[FeedCandidate]:
+        if not candidates:
+            return candidates
+        post_ids = {c.id for c in candidates}
+        author_ids = {c.author_id for c in candidates}
+        post_labels = await labels_for_targets(
+            db, target_type=SafetyTargetType.POST, target_ids=post_ids
+        )
+        author_labels = await labels_for_targets(
+            db, target_type=SafetyTargetType.USER, target_ids=author_ids
+        )
+        for candidate in candidates:
+            candidate.safety_labels = post_labels.get(candidate.id, set())
+            candidate.author_safety_labels = author_labels.get(candidate.author_id, set())
         return candidates
 
 
@@ -299,6 +333,7 @@ class ParentHydrator(Hydrator):
             candidate.parent_visibility = parent.visibility
             author = authors.get(parent.author_id)
             if author is not None:
+                candidate.parent_author_handle = author.handle
                 candidate.parent_author_is_private = author.is_private
                 candidate.parent_author_status = author.status
         return candidates
@@ -323,6 +358,93 @@ class EngagementHydrator(Hydrator):
                 continue
             candidate.like_count = engagement.like_count
             candidate.reply_count = engagement.reply_count
+            candidate.repost_count = engagement.repost_count
+        return candidates
+
+
+class ReferenceHydrator(Hydrator):
+    async def enrich(
+        self, db: AsyncSession, query: FeedQuery, candidates: list[FeedCandidate]
+    ) -> list[FeedCandidate]:
+        ref_ids = {c.quote_of_id for c in candidates if c.quote_of_id} | {
+            c.repost_of_id for c in candidates if c.repost_of_id
+        }
+        if not ref_ids:
+            return candidates
+
+        result = await db.execute(select(Post).where(Post.id.in_(ref_ids)))
+        posts = {post.id: post for post in result.scalars().all()}
+        author_ids = {post.author_id for post in posts.values()}
+        authors: dict = {}
+        if author_ids:
+            author_result = await db.execute(select(User).where(User.id.in_(author_ids)))
+            authors = {user.id: user for user in author_result.scalars().all()}
+        engagements: dict = {}
+        eng_result = await db.execute(
+            select(PostEngagement).where(PostEngagement.post_id.in_(ref_ids))
+        )
+        engagements = {row.post_id: row for row in eng_result.scalars().all()}
+
+        def to_ref(post_id: uuid.UUID | None) -> ReferencedPost | None:
+            if post_id is None:
+                return None
+            post = posts.get(post_id)
+            if post is None or post.deleted_at is not None:
+                return ReferencedPost(
+                    id=post_id,
+                    author_id=None,
+                    author_handle="deleted",
+                    author_display_name="削除済み",
+                    body="",
+                )
+            author = authors.get(post.author_id)
+            return ReferencedPost(
+                id=post.id,
+                author_id=post.author_id,
+                author_handle=author.handle if author is not None else "unknown",
+                author_display_name=author.display_name if author is not None else "Unknown",
+                body=post.body,
+            )
+
+        for candidate in candidates:
+            candidate.quote_of = to_ref(candidate.quote_of_id)
+            candidate.repost_of = to_ref(candidate.repost_of_id)
+            if candidate.repost_of_id is not None:
+                engagement = engagements.get(candidate.repost_of_id)
+                if engagement is not None:
+                    candidate.like_count = engagement.like_count
+                    candidate.reply_count = engagement.reply_count
+                    candidate.repost_count = engagement.repost_count
+        return candidates
+
+
+class ViewerStateHydrator(Hydrator):
+    async def enrich(
+        self, db: AsyncSession, query: FeedQuery, candidates: list[FeedCandidate]
+    ) -> list[FeedCandidate]:
+        if not candidates:
+            return candidates
+        target_ids = {c.repost_of_id or c.id for c in candidates}
+        like_rows = await db.execute(
+            select(Like.post_id).where(
+                Like.user_id == query.viewer_id,
+                Like.post_id.in_(target_ids),
+            )
+        )
+        liked_ids = {row[0] for row in like_rows.all()}
+        repost_rows = await db.execute(
+            select(Post.repost_of_id).where(
+                Post.author_id == query.viewer_id,
+                Post.repost_of_id.in_(target_ids),
+                Post.deleted_at.is_(None),
+                Post.status == PostStatus.PUBLISHED,
+            )
+        )
+        reposted_ids = {row[0] for row in repost_rows.all() if row[0] is not None}
+        for candidate in candidates:
+            original = candidate.repost_of_id or candidate.id
+            candidate.liked = original in liked_ids
+            candidate.reposted = original in reposted_ids
         return candidates
 
 
@@ -505,8 +627,15 @@ def build_feed_pipeline(weights: RankingWeights | None = None) -> FeedPipeline:
             ViewerInterestQueryHydrator(),
         ],
         sources=[ThunderSource(), OutOfNetworkSource()],
-        blender=SourceBlender(oon_ratio=0.3),
-        hydrators=[AuthorHydrator(), ParentHydrator(), EngagementHydrator()],
+        blender=SourceBlender(oon_ratio=0.35),
+        hydrators=[
+            AuthorHydrator(),
+            SafetyLabelHydrator(),
+            ParentHydrator(),
+            EngagementHydrator(),
+            ReferenceHydrator(),
+            ViewerStateHydrator(),
+        ],
         policy=PolicyFilter(home_feed_policy()),
         weights=resolved_weights,
         selector=CursorSelector(),
@@ -526,7 +655,13 @@ def build_following_pipeline(weights: RankingWeights | None = None) -> FeedPipel
             FeedbackQueryHydrator(),
         ],
         sources=[ThunderSource()],
-        hydrators=[AuthorHydrator(), ParentHydrator(), EngagementHydrator()],
+        hydrators=[
+            AuthorHydrator(),
+            ParentHydrator(),
+            EngagementHydrator(),
+            ReferenceHydrator(),
+            ViewerStateHydrator(),
+        ],
         policy=PolicyFilter(following_feed_policy()),
         weights=resolved_weights,
         selector=CursorSelector(),

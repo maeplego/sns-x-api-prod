@@ -4,7 +4,7 @@ import json
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, Text, TypeDecorator, func
+from sqlalchemy import DateTime, Float, ForeignKey, String, Text, TypeDecorator, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -14,10 +14,18 @@ EMBEDDING_DIM = 384
 
 
 class EmbeddingVector(TypeDecorator):
-    """PostgreSQL: vector(384). SQLite tests: JSON text."""
+    """PostgreSQL: vector(384). SQLite tests: JSON text.
+
+    pgvector's Vector bind processor stringifies the list. asyncpg's
+    register_vector codec then rejects that string, so we pass a list.
+    """
 
     impl = Text
     cache_ok = True
+
+    class comparator_factory(TypeDecorator.Comparator):
+        def cosine_distance(self, other):
+            return self.op("<=>", return_type=Float())(other)
 
     def load_dialect_impl(self, dialect):
         if dialect.name == "postgresql":
@@ -26,19 +34,41 @@ class EmbeddingVector(TypeDecorator):
             return dialect.type_descriptor(Vector(EMBEDDING_DIM))
         return dialect.type_descriptor(Text)
 
-    def process_bind_param(self, value, dialect):
-        if value is None:
-            return None
+    def bind_processor(self, dialect):
         if dialect.name == "postgresql":
-            return value
-        return json.dumps(value)
+            def process(value):
+                if value is None:
+                    return None
+                return [float(x) for x in value]
 
-    def process_result_value(self, value, dialect):
-        if value is None:
-            return None
+            return process
+
+        def process(value):
+            if value is None:
+                return None
+            if isinstance(value, str):
+                return value
+            return json.dumps(value)
+
+        return process
+
+    def result_processor(self, dialect, _coltype):
         if dialect.name == "postgresql":
+            def process(value):
+                if value is None:
+                    return None
+                return list(value)
+
+            return process
+
+        def process(value):
+            if value is None:
+                return None
+            if isinstance(value, str):
+                return json.loads(value)
             return list(value)
-        return json.loads(value)
+
+        return process
 
 
 class PostEmbedding(Base):

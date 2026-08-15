@@ -15,15 +15,6 @@ class HiddenPostRule(Rule):
         return PolicyVerdict.ALLOW
 
 
-class SelfPostRule(Rule):
-    name = "SelfPostRule"
-
-    def evaluate(self, context: PolicyContext) -> PolicyVerdict:
-        if context.candidate.author_id == context.viewer_id:
-            return PolicyVerdict.DROP
-        return PolicyVerdict.ALLOW
-
-
 class AgeRule(Rule):
     name = "AgeRule"
 
@@ -148,10 +139,24 @@ class ReplyAncillaryRule(Rule):
         return PolicyVerdict.ALLOW
 
 
+class OonAmplificationRule(Rule):
+    """Drop OON candidates with amplification-limiting safety labels (X-style)."""
+
+    name = "OonAmplificationRule"
+
+    def evaluate(self, context: PolicyContext) -> PolicyVerdict:
+        candidate = context.candidate
+        if candidate.source != "oon":
+            return PolicyVerdict.ALLOW
+        labels = candidate.safety_labels | candidate.author_safety_labels
+        if labels & {"spam_suspect", "nsfw", "do_not_amplify"}:
+            return PolicyVerdict.DROP
+        return PolicyVerdict.ALLOW
+
+
 def home_feed_policy() -> list[Rule]:
     return [
         HiddenPostRule(),
-        SelfPostRule(),
         AgeRule(),
         BlockedAuthorRule(),
         MutedAuthorRule(),
@@ -160,6 +165,7 @@ def home_feed_policy() -> list[Rule]:
         PrivateAccountRule(),
         FollowersOnlyPostRule(),
         OonReplyRule(),
+        OonAmplificationRule(),
         ReplyAncillaryRule(),
     ]
 
@@ -168,7 +174,6 @@ def following_feed_policy() -> list[Rule]:
     """Chronological Following surface: no 48h cutoff, no OON reply rule."""
     return [
         HiddenPostRule(),
-        SelfPostRule(),
         BlockedAuthorRule(),
         MutedAuthorRule(),
         MutedKeywordRule(),

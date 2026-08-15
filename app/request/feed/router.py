@@ -1,11 +1,14 @@
 import uuid
+from datetime import datetime
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import database
 from app.core.database import get_db
-from app.core.models import User
+from app.core.models import Follow, Post, PostStatus, User
+from app.core.social_models import UserFeedEntry
 from app.request.auth import get_current_user
 from app.request.feed.blender import insert_who_to_follow
 from app.request.feed.pipeline import build_feed_pipeline, build_following_pipeline
@@ -18,6 +21,7 @@ from app.request.feed.schemas import (
 )
 from app.request.feed.types import FeedCandidate, FeedQuery, decode_cursor
 from app.request.feed.who_to_follow import fetch_who_to_follow
+from app.request.schemas import FeedUpdatesResponse, ReferencedPostItem
 from app.request.side_effects.feed_impression import record_feed_impressions
 
 router = APIRouter(tags=["feed"])
@@ -42,6 +46,18 @@ def _parse_cursor(cursor: str | None) -> tuple | None:
         ) from exc
 
 
+def _ref_item(ref) -> ReferencedPostItem | None:
+    if ref is None:
+        return None
+    return ReferencedPostItem(
+        id=ref.id,
+        author_id=ref.author_id,
+        author_handle=ref.author_handle,
+        author_display_name=ref.author_display_name,
+        body=ref.body,
+    )
+
+
 def _post_items(candidates: list[FeedCandidate]) -> list[FeedPostItem]:
     return [
         FeedPostItem(
@@ -53,6 +69,14 @@ def _post_items(candidates: list[FeedCandidate]) -> list[FeedPostItem]:
             created_at=c.created_at,
             rank_score=c.rank_score,
             parent_id=c.parent_id,
+            parent_author_handle=c.parent_author_handle,
+            like_count=c.like_count,
+            reply_count=c.reply_count,
+            repost_count=c.repost_count,
+            liked=c.liked,
+            reposted=c.reposted,
+            quote_of=_ref_item(c.quote_of),
+            repost_of=_ref_item(c.repost_of),
         )
         for c in candidates
     ]
@@ -123,3 +147,45 @@ async def get_who_to_follow(
 ) -> WhoToFollowResponse:
     users = await fetch_who_to_follow(db, current_user.id)
     return WhoToFollowResponse(users=users)
+
+
+@router.get("/feed/updates", response_model=FeedUpdatesResponse)
+async def get_feed_updates(
+    surface: str = Query(default="for_you"),
+    since: datetime | None = Query(default=None),
+    since_id: uuid.UUID | None = Query(default=None),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> FeedUpdatesResponse:
+    if surface not in {"for_you", "following"}:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid surface")
+    if since is None:
+        return FeedUpdatesResponse(has_new=False, count=0)
+    stmt = (
+        select(func.count())
+        .select_from(UserFeedEntry)
+        .join(Post, Post.id == UserFeedEntry.post_id)
+        .where(
+            UserFeedEntry.user_id == current_user.id,
+            Post.deleted_at.is_(None),
+            Post.status == PostStatus.PUBLISHED,
+        )
+    )
+    if surface == "following":
+        followees = select(Follow.followee_id).where(Follow.follower_id == current_user.id)
+        stmt = stmt.where(
+            or_(Post.author_id == current_user.id, Post.author_id.in_(followees))
+        )
+    since_naive = since.replace(tzinfo=None) if since.tzinfo else since
+    newer = UserFeedEntry.created_at > since_naive
+    if since_id is not None:
+        newer = or_(
+            UserFeedEntry.created_at > since_naive,
+            and_(
+                UserFeedEntry.created_at == since_naive,
+                UserFeedEntry.post_id != since_id,
+            ),
+        )
+    stmt = stmt.where(newer)
+    count = int(await db.scalar(stmt) or 0)
+    return FeedUpdatesResponse(has_new=count > 0, count=count)

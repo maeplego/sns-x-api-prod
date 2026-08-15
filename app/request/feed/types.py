@@ -8,6 +8,15 @@ from app.core.models import PostVisibility, UserStatus
 
 
 @dataclass
+class ReferencedPost:
+    id: uuid.UUID
+    author_handle: str
+    author_display_name: str
+    body: str
+    author_id: uuid.UUID | None = None
+
+
+@dataclass
 class FeedQuery:
     viewer_id: uuid.UUID
     following_ids: set[uuid.UUID] = field(default_factory=set)
@@ -42,11 +51,22 @@ class FeedCandidate:
     similarity_score: float | None = None
     parent_id: uuid.UUID | None = None
     root_id: uuid.UUID | None = None
+    quote_of_id: uuid.UUID | None = None
+    repost_of_id: uuid.UUID | None = None
+    liked: bool = False
+    reposted: bool = False
+    repost_count: int = 0
+    quote_of: "ReferencedPost | None" = None
+    repost_of: "ReferencedPost | None" = None
     parent_missing: bool = False
     parent_author_id: uuid.UUID | None = None
+    parent_author_handle: str | None = None
     parent_visibility: PostVisibility = PostVisibility.PUBLIC
     parent_author_is_private: bool = False
     parent_author_status: UserStatus = UserStatus.ACTIVE
+    safety_labels: set[str] = field(default_factory=set)
+    author_safety_labels: set[str] = field(default_factory=set)
+    author_cred_score: float = 50.0
 
 
 def encode_cursor(created_at: datetime, post_id: uuid.UUID) -> str:

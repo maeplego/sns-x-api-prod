@@ -93,7 +93,7 @@ async def test_cannot_feedback_own_post(client: AsyncClient):
     await _signup(client, "solo_fb", "solo_fb@example.com")
     headers = await _headers(client, "solo_fb@example.com")
     posted = await client.post("/posts", headers=headers, json={"body": "mine"})
-    # own posts are hidden from For You; the feedback API still rejects them
+    # own posts can appear on For You; hiding yourself is still rejected
     response = await client.post(
         f"/feedback/{posted.json()['id']}",
         headers=headers,

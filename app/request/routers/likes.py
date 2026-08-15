@@ -21,6 +21,12 @@ async def like_post(
     post = await db.get(Post, post_id)
     if post is None or post.deleted_at is not None or post.status != PostStatus.PUBLISHED:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
+    if post.repost_of_id is not None:
+        original = await db.get(Post, post.repost_of_id)
+        if original is None or original.deleted_at is not None or original.status != PostStatus.PUBLISHED:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
+        post = original
+        post_id = post.id
     if post.author_id == current_user.id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot like your own post")
 
@@ -34,7 +40,7 @@ async def like_post(
 
     engagement = await db.get(PostEngagement, post_id)
     if engagement is None:
-        engagement = PostEngagement(post_id=post_id, like_count=1, reply_count=0)
+        engagement = PostEngagement(post_id=post_id, like_count=1, reply_count=0, repost_count=0)
         db.add(engagement)
     else:
         engagement.like_count += 1
@@ -45,6 +51,7 @@ async def like_post(
             type="post_liked",
             payload_json={
                 "post_id": str(post_id),
+                "post_body": post.body[:140],
                 "liker_id": str(current_user.id),
                 "liker_handle": current_user.handle,
             },
@@ -64,6 +71,18 @@ async def unlike_post(
         select(Like).where(Like.user_id == current_user.id, Like.post_id == post_id)
     )
     like = result.scalar_one_or_none()
+    if like is None:
+        post = await db.get(Post, post_id)
+        if post is not None and post.repost_of_id is not None:
+            result = await db.execute(
+                select(Like).where(
+                    Like.user_id == current_user.id,
+                    Like.post_id == post.repost_of_id,
+                )
+            )
+            like = result.scalar_one_or_none()
+            if like is not None:
+                post_id = post.repost_of_id
     if like is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not liked")
 

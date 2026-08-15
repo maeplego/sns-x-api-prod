@@ -2,7 +2,7 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, ForeignKey, String, Text, UniqueConstraint, func
+from sqlalchemy import DateTime, Enum, Float, ForeignKey, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -41,6 +41,7 @@ class User(Base):
         Enum(UserStatus, name="user_status", native_enum=False),
         default=UserStatus.ACTIVE,
     )
+    cred_score: Mapped[float] = mapped_column(Float, default=50.0)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
@@ -74,6 +75,12 @@ class Post(Base):
     root_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("posts.id"), nullable=True, index=True
     )
+    quote_of_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("posts.id"), nullable=True, index=True
+    )
+    repost_of_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("posts.id"), nullable=True, index=True
+    )
 
     author: Mapped[User] = relationship(back_populates="posts")
 
@@ -86,6 +93,7 @@ class PostEngagement(Base):
     )
     like_count: Mapped[int] = mapped_column(default=0)
     reply_count: Mapped[int] = mapped_column(default=0)
+    repost_count: Mapped[int] = mapped_column(default=0)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )

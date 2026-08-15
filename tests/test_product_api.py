@@ -39,6 +39,36 @@ async def test_public_profile_omits_email(client: AsyncClient):
 
 
 @pytest.mark.asyncio
+async def test_profile_block_and_mute_actions(client: AsyncClient):
+    bob = await _signup(client, "bob_act", "bob_act@example.com")
+    await _signup(client, "alice_act", "alice_act@example.com")
+    alice_headers = await _login(client, "alice_act@example.com")
+
+    await client.post(f"/follows/{bob['id']}", headers=alice_headers)
+    muted = await client.post(f"/mutes/{bob['id']}", headers=alice_headers)
+    assert muted.status_code == 201
+    muted_profile = await client.get("/users/bob_act", headers=alice_headers)
+    assert muted_profile.json()["is_muting"] is True
+    assert muted_profile.json()["is_following"] is True
+
+    blocked = await client.post(f"/blocks/{bob['id']}", headers=alice_headers)
+    assert blocked.status_code == 201
+    blocked_profile = await client.get("/users/bob_act", headers=alice_headers)
+    assert blocked_profile.json()["is_blocking"] is True
+    assert blocked_profile.json()["is_following"] is False
+    assert blocked_profile.json()["follower_count"] == 0
+
+    follow_again = await client.post(f"/follows/{bob['id']}", headers=alice_headers)
+    assert follow_again.status_code == 400
+
+    await client.delete(f"/blocks/{bob['id']}", headers=alice_headers)
+    await client.delete(f"/mutes/{bob['id']}", headers=alice_headers)
+    cleared = await client.get("/users/bob_act", headers=alice_headers)
+    assert cleared.json()["is_blocking"] is False
+    assert cleared.json()["is_muting"] is False
+
+
+@pytest.mark.asyncio
 async def test_patch_me_updates_profile(client: AsyncClient):
     await _signup(client, "alice_me", "alice_me@example.com")
     headers = await _login(client, "alice_me@example.com")
@@ -110,7 +140,46 @@ async def test_mark_notifications_read(client: AsyncClient):
 
 
 @pytest.mark.asyncio
+async def test_like_notifications_from_same_user_are_grouped(client: AsyncClient):
+    await _signup(client, "bob_grp", "bob_grp@example.com")
+    await _signup(client, "alice_grp", "alice_grp@example.com")
+    bob_headers = await _login(client, "bob_grp@example.com")
+    alice_headers = await _login(client, "alice_grp@example.com")
+
+    first = await client.post("/posts", headers=bob_headers, json={"body": "first liked"})
+    second = await client.post("/posts", headers=bob_headers, json={"body": "second liked"})
+    await client.post(f"/likes/{first.json()['id']}", headers=alice_headers)
+    await client.post(f"/likes/{second.json()['id']}", headers=alice_headers)
+
+    listed = await client.get("/notifications", headers=bob_headers)
+    likes = [item for item in listed.json()["items"] if item["type"] == "post_liked"]
+    assert len(likes) == 1
+    bodies = {post["body"] for post in likes[0]["payload_json"]["posts"]}
+    assert bodies == {"first liked", "second liked"}
+    assert listed.json()["unread_count"] == 2
+
+
+@pytest.mark.asyncio
+async def test_profile_likes_are_private_to_self(client: AsyncClient):
+    bob = await _signup(client, "bob_lk", "bob_lk@example.com")
+    await _signup(client, "alice_lk", "alice_lk@example.com")
+    bob_headers = await _login(client, "bob_lk@example.com")
+    alice_headers = await _login(client, "alice_lk@example.com")
+
+    post = await client.post("/posts", headers=bob_headers, json={"body": "likeable"})
+    await client.post(f"/likes/{post.json()['id']}", headers=alice_headers)
+
+    own = await client.get("/users/alice_lk/likes", headers=alice_headers)
+    assert own.status_code == 200
+    assert [item["body"] for item in own.json()["items"]] == ["likeable"]
+
+    other = await client.get("/users/alice_lk/likes", headers=bob_headers)
+    assert other.status_code == 403
+    assert bob["id"]
+
+
+@pytest.mark.asyncio
 async def test_cors_allows_vite_origin(client: AsyncClient):
-    response = await client.get("/health", headers={"Origin": "http://localhost:5173"})
+    response = await client.get("/health", headers={"Origin": "http://localhost:5174"})
     assert response.status_code == 200
-    assert response.headers.get("access-control-allow-origin") == "http://localhost:5173"
+    assert response.headers.get("access-control-allow-origin") == "http://localhost:5174"

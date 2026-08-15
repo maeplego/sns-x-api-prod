@@ -29,6 +29,7 @@ class EngagementInitTask(Task):
                     post_id=ctx.post_id,
                     like_count=0,
                     reply_count=0,
+                    repost_count=0,
                     updated_at=datetime.now(UTC),
                 )
             )

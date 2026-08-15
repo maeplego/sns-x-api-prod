@@ -4,17 +4,12 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
+from app.request.schemas import PostCardItem
 
-class FeedPostItem(BaseModel):
+
+class FeedPostItem(PostCardItem):
     kind: Literal["post"] = "post"
-    id: uuid.UUID
-    author_id: uuid.UUID
-    author_handle: str
-    author_display_name: str
-    body: str
-    created_at: datetime
     rank_score: float | None = None
-    parent_id: uuid.UUID | None = None
 
 
 class WhoToFollowUserItem(BaseModel):

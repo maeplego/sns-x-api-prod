@@ -12,6 +12,7 @@ from app.core.database import get_db
 from app.core.models import Base
 import app.core.social_models  # noqa: F401
 import app.core.embedding_models  # noqa: F401
+import app.core.safety_models  # noqa: F401
 from app.core.queue import set_event_bus
 from app.labeling.loading import load_all
 from app.main import app

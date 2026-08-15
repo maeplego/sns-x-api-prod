@@ -1,11 +1,11 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.models import Follow, User
+from app.core.models import Block, Follow, User
 from app.core.social_models import Notification
 from app.request.auth import get_current_user
 from app.request.feed.backfill import backfill_followee_posts, remove_followee_from_feed
@@ -27,6 +27,17 @@ async def follow_user(
     target = result.scalar_one_or_none()
     if target is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    blocked = await db.scalar(
+        select(Block).where(
+            or_(
+                (Block.blocker_id == current_user.id) & (Block.blocked_id == user_id),
+                (Block.blocker_id == user_id) & (Block.blocked_id == current_user.id),
+            )
+        )
+    )
+    if blocked is not None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot follow a blocked user")
 
     existing = await db.execute(
         select(Follow).where(

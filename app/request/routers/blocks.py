@@ -1,12 +1,13 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.models import Block, User
+from app.core.models import Block, Follow, User
 from app.request.auth import get_current_user
+from app.request.feed.backfill import remove_followee_from_feed
 from app.request.schemas import BlockResponse
 
 router = APIRouter(prefix="/blocks", tags=["blocks"])
@@ -35,10 +36,25 @@ async def block_user(
     if existing.scalar_one_or_none() is not None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Already blocked")
 
+    follows = await db.execute(
+        select(Follow).where(
+            or_(
+                (Follow.follower_id == current_user.id) & (Follow.followee_id == user_id),
+                (Follow.follower_id == user_id) & (Follow.followee_id == current_user.id),
+            )
+        )
+    )
+    for follow in follows.scalars().all():
+        await remove_followee_from_feed(db, follow.follower_id, follow.followee_id)
+        await db.delete(follow)
+
     block = Block(blocker_id=current_user.id, blocked_id=user_id)
     db.add(block)
     await db.commit()
     await db.refresh(block)
+    from app.safety.health import refresh_user_health
+
+    await refresh_user_health(db, user_id)
     return block
 
 

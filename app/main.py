@@ -2,8 +2,9 @@ import logging
 from contextlib import asynccontextmanager
 
 import structlog
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.core.config import settings
 from app.core.middleware import RequestIdMiddleware
@@ -21,6 +22,8 @@ from app.request.routers import (
     mutes,
     notifications,
     posts,
+    search,
+    under_the_hood,
     users,
 )
 
@@ -61,9 +64,9 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="sns-tutorial-x-api",
-    description="Product fork of sns-tutorial-x (feed algorithm tutorial at v1.5)",
-    version="2.0.0",
+    title="sns-x-api",
+    description="Product SNS forked from sns-tutorial-x-api (visibility labels, ranking, UTH)",
+    version="2.1.0",
     lifespan=lifespan,
 )
 
@@ -87,6 +90,14 @@ app.include_router(blocks.router)
 app.include_router(mutes.router)
 app.include_router(muted_keywords.router)
 app.include_router(follows.router)
+app.include_router(search.router)
+app.include_router(under_the_hood.router)
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(_request: Request, exc: Exception) -> JSONResponse:
+    logger.exception("unhandled_error", error=str(exc))
+    return JSONResponse(status_code=500, content={"detail": "Internal Server Error"})
 
 
 @app.get("/health")

@@ -6,7 +6,7 @@ from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.models import Block, Follow, Mute, Post, PostStatus, PostVisibility, User
+from app.core.models import Block, Follow, Mute, Post, PostEngagement, PostStatus, PostVisibility, User
 from app.core.queue import get_event_bus
 from app.core.social_models import MutedKeyword
 from app.labeling.events import POST_CREATED
@@ -14,11 +14,11 @@ from app.policy.engine import PolicyContext, PolicyVerdict, evaluate_rules
 from app.policy.rules import thread_policy
 from app.request.auth import get_current_user, get_optional_user
 from app.request.feed.types import FeedCandidate
+from app.request.post_cards import build_post_cards
 from app.request.schemas import (
     PostAcceptedResponse,
     PostCreateRequest,
     PostResponse,
-    ThreadPostItem,
     ThreadResponse,
 )
 
@@ -62,6 +62,34 @@ async def _assert_can_reply(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot reply")
 
 
+async def _load_reference(db: AsyncSession, post_id: uuid.UUID) -> Post:
+    post = await db.get(Post, post_id)
+    if post is None or post.deleted_at is not None or post.status != PostStatus.PUBLISHED:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
+    if post.repost_of_id is not None:
+        original = await db.get(Post, post.repost_of_id)
+        if original is None or original.deleted_at is not None or original.status != PostStatus.PUBLISHED:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
+        return original
+    return post
+
+
+async def _assert_can_view_reference(db: AsyncSession, viewer: User, target: Post) -> None:
+    if target.author_id == viewer.id:
+        return
+    follows = await db.scalar(
+        select(Follow).where(
+            Follow.follower_id == viewer.id,
+            Follow.followee_id == target.author_id,
+        )
+    )
+    author = await db.get(User, target.author_id)
+    if author is not None and author.is_private and follows is None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot reference this post")
+    if target.visibility == PostVisibility.FOLLOWERS_ONLY and follows is None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot reference this post")
+
+
 @router.post("", response_model=PostAcceptedResponse, status_code=status.HTTP_202_ACCEPTED)
 async def create_post(
     body: PostCreateRequest,
@@ -70,12 +98,31 @@ async def create_post(
 ) -> PostAcceptedResponse:
     visibility = body.visibility
     parent_id = body.parent_id
+    quote_of_id = body.quote_of_id
+    repost_of_id = body.repost_of_id
     root_id = None
     if parent_id is not None:
         parent = await _load_parent_or_404(db, parent_id)
         await _assert_can_reply(db, current_user, parent)
         visibility = parent.visibility
         root_id = parent.root_id or parent.id
+    if quote_of_id is not None:
+        quoted = await _load_reference(db, quote_of_id)
+        await _assert_can_view_reference(db, current_user, quoted)
+        quote_of_id = quoted.id
+    if repost_of_id is not None:
+        original = await _load_reference(db, repost_of_id)
+        await _assert_can_view_reference(db, current_user, original)
+        existing = await db.scalar(
+            select(Post).where(
+                Post.author_id == current_user.id,
+                Post.repost_of_id == original.id,
+                Post.deleted_at.is_(None),
+            )
+        )
+        if existing is not None:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Already reposted")
+        repost_of_id = original.id
 
     post = Post(
         author_id=current_user.id,
@@ -84,6 +131,8 @@ async def create_post(
         status=PostStatus.PROCESSING,
         parent_id=parent_id,
         root_id=root_id,
+        quote_of_id=quote_of_id,
+        repost_of_id=repost_of_id,
     )
     db.add(post)
     await db.commit()
@@ -180,7 +229,7 @@ async def get_thread(
         ).all()
     }
 
-    items: list[ThreadPostItem] = []
+    visible_posts: list[Post] = []
     rules = thread_policy()
     for row in posts:
         author = authors.get(row.author_id)
@@ -209,28 +258,19 @@ async def get_thread(
         verdict, _ = evaluate_rules(rules, context)
         if verdict == PolicyVerdict.DROP:
             continue
-        items.append(
-            ThreadPostItem(
-                id=row.id,
-                author_id=row.author_id,
-                author_handle=candidate.author_handle or "unknown",
-                author_display_name=candidate.author_display_name or "Unknown",
-                body=row.body,
-                parent_id=row.parent_id,
-                created_at=row.created_at,
-            )
-        )
+        visible_posts.append(row)
 
-    visible_ids = {item.id for item in items if item.parent_id is None}
+    visible_ids = {item.id for item in visible_posts if item.parent_id is None}
     changed = True
     while changed:
         changed = False
-        for item in items:
+        for item in visible_posts:
             if item.id not in visible_ids and item.parent_id in visible_ids:
                 visible_ids.add(item.id)
                 changed = True
-    items = [item for item in items if item.id in visible_ids]
-    items.sort(key=lambda item: (item.parent_id is not None, item.created_at, str(item.id)))
+    visible_posts = [item for item in visible_posts if item.id in visible_ids]
+    visible_posts.sort(key=lambda item: (item.parent_id is not None, item.created_at, str(item.id)))
+    items = await build_post_cards(db, visible_posts, current_user.id)
 
     return ThreadResponse(root_id=root_id, items=items)
 
@@ -251,4 +291,41 @@ async def delete_post(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your post")
 
     post.deleted_at = datetime.now(UTC)
+    if post.repost_of_id is not None:
+        engagement = await db.get(PostEngagement, post.repost_of_id)
+        if engagement is not None and engagement.repost_count > 0:
+            engagement.repost_count -= 1
+            engagement.updated_at = datetime.now(UTC)
     await db.commit()
+
+
+@router.post("/{post_id}/repost", response_model=PostAcceptedResponse, status_code=status.HTTP_202_ACCEPTED)
+async def repost_post(
+    post_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> PostAcceptedResponse:
+    return await create_post(
+        PostCreateRequest(repost_of_id=post_id),
+        current_user,
+        db,
+    )
+
+
+@router.delete("/{post_id}/repost", status_code=status.HTTP_204_NO_CONTENT)
+async def unrepost_post(
+    post_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    original = await _load_reference(db, post_id)
+    existing = await db.scalar(
+        select(Post).where(
+            Post.author_id == current_user.id,
+            Post.repost_of_id == original.id,
+            Post.deleted_at.is_(None),
+        )
+    )
+    if existing is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not reposted")
+    await delete_post(existing.id, current_user, db)

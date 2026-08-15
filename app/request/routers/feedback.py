@@ -34,12 +34,20 @@ async def upsert_feedback(
         existing.kind = kind
         await db.commit()
         await db.refresh(existing)
+        if kind == FeedbackKind.HIDE:
+            from app.safety.health import refresh_user_health
+
+            await refresh_user_health(db, post.author_id)
         return existing
 
     row = PostFeedback(viewer_id=current_user.id, post_id=post_id, kind=kind)
     db.add(row)
     await db.commit()
     await db.refresh(row)
+    if kind == FeedbackKind.HIDE:
+        from app.safety.health import refresh_user_health
+
+        await refresh_user_health(db, post.author_id)
     return row
 
 

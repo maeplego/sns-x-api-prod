@@ -8,7 +8,7 @@ from app.policy.rules import (
     AgeRule,
     MutedAuthorRule,
     MutedKeywordRule,
-    SelfPostRule,
+    following_feed_policy,
     home_feed_policy,
 )
 from app.request.feed.types import FeedCandidate
@@ -24,13 +24,6 @@ def _candidate(**overrides) -> FeedCandidate:
     )
     values.update(overrides)
     return FeedCandidate(**values)
-
-
-def test_self_post_rule_drops_viewer_own_post():
-    viewer_id = uuid4()
-    candidate = _candidate(author_id=viewer_id)
-    context = PolicyContext(viewer_id=viewer_id, following_ids={viewer_id}, blocked_user_ids=set(), candidate=candidate)
-    assert SelfPostRule().evaluate(context) == PolicyVerdict.DROP
 
 
 def test_age_rule_drops_posts_older_than_48_hours():
@@ -77,7 +70,7 @@ def test_muted_author_and_keyword_rules():
     assert MutedKeywordRule().evaluate(keyword_ctx) == PolicyVerdict.DROP
 
 
-def test_home_feed_policy_self_post_wins_first():
+def test_home_and_following_policies_keep_viewer_own_post():
     viewer_id = uuid4()
     candidate = _candidate(author_id=viewer_id, body="my post")
     context = PolicyContext(
@@ -86,6 +79,9 @@ def test_home_feed_policy_self_post_wins_first():
         blocked_user_ids=set(),
         candidate=candidate,
     )
-    verdict, rule_name = evaluate_rules(home_feed_policy(), context)
-    assert verdict == PolicyVerdict.DROP
-    assert rule_name == "SelfPostRule"
+    home_verdict, home_rule = evaluate_rules(home_feed_policy(), context)
+    following_verdict, following_rule = evaluate_rules(following_feed_policy(), context)
+    assert home_verdict == PolicyVerdict.ALLOW
+    assert home_rule is None
+    assert following_verdict == PolicyVerdict.ALLOW
+    assert following_rule is None

@@ -108,14 +108,22 @@ async def test_muted_keyword_hides_matching_post(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_own_posts_are_hidden_from_for_you(client: AsyncClient):
+async def test_own_posts_appear_on_for_you_and_following(client: AsyncClient):
     await _signup(client, "solo", "solo@example.com")
     headers = {"Authorization": f"Bearer {await _login(client, 'solo@example.com')}"}
     await client.post("/posts", headers=headers, json={"body": "my own post"})
 
-    feed = await client.get("/feed", headers=headers)
-    assert feed.status_code == 200
-    assert feed.json()["items"] == []
+    for_you = await client.get("/feed", headers=headers)
+    assert for_you.status_code == 200
+    assert [item["body"] for item in for_you.json()["items"] if item["kind"] == "post"] == [
+        "my own post"
+    ]
+
+    following = await client.get("/feed/following", headers=headers)
+    assert following.status_code == 200
+    assert [item["body"] for item in following.json()["items"] if item["kind"] == "post"] == [
+        "my own post"
+    ]
 
 
 @pytest.mark.asyncio

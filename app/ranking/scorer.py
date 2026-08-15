@@ -30,7 +30,9 @@ def score_candidate(
         if candidate.author_id in query.following_ids and candidate.author_id != query.viewer_id
         else 0.0
     )
-    return (
+    # cred_score 100 → 0 penalty factor; 0 → full low_cred_penalty
+    cred_factor = max(0.0, min(1.0, (100.0 - candidate.author_cred_score) / 100.0))
+    score = (
         weights.recency * recency_signal(candidate.created_at, now=now)
         + weights.in_network_boost * in_network
         + weights.engagement * engagement_signal(candidate.like_count, candidate.reply_count)
@@ -39,7 +41,11 @@ def score_candidate(
         + weights.seen_penalty * (1.0 if candidate.seen else 0.0)
         + weights.not_interested_author
         * (1.0 if candidate.author_id in query.not_interested_author_ids else 0.0)
+        + weights.low_cred_penalty * cred_factor
     )
+    if candidate.source == "oon":
+        score *= weights.oon_discount
+    return score
 
 
 def apply_author_diversity(
@@ -48,12 +54,7 @@ def apply_author_diversity(
     decay: float,
     floor: float,
 ) -> list[FeedCandidate]:
-    """Attenuate repeated authors after independent scoring.
-
-    Walks candidates in current score order so the strongest post from an
-    author keeps factor 1.0. Each later post is multiplied by decay**n,
-    clamped to floor, then the list is re-sorted.
-    """
+    """Attenuate repeated authors after independent scoring (DPP-lite)."""
     seen_count: dict[UUID, int] = {}
     for candidate in candidates:
         count = seen_count.get(candidate.author_id, 0)
