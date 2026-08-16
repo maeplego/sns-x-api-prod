@@ -14,6 +14,8 @@ async def _signup(client: AsyncClient, handle: str, email: str, password: str = 
             "email": email,
             "password": password,
             "display_name": handle.title(),
+            "accept_terms": True,
+            "accept_privacy": True,
         },
     )
     assert response.status_code == 201

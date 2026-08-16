@@ -10,6 +10,8 @@ async def _signup(client: AsyncClient, handle: str, email: str, password: str = 
             "email": email,
             "password": password,
             "display_name": handle.title(),
+            "accept_terms": True,
+            "accept_privacy": True,
         },
     )
 
@@ -60,7 +62,19 @@ async def test_wrong_password_rejected(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_logout_all_bumps_token_version(client: AsyncClient):
+async def test_signup_requires_legal_acceptance(client: AsyncClient):
+    response = await client.post(
+        "/auth/signup",
+        json={
+            "handle": "nolegal",
+            "email": "nolegal@example.com",
+            "password": "password123",
+            "display_name": "No Legal",
+            "accept_terms": False,
+            "accept_privacy": True,
+        },
+    )
+    assert response.status_code == 422
     signup = await _signup(client, "dave", "dave@example.com")
     access = signup.json()["access_token"]
     headers = {"Authorization": f"Bearer {access}"}

@@ -11,6 +11,8 @@ async def test_signup_login_and_post(client: AsyncClient):
             "email": "alice@example.com",
             "password": "password123",
             "display_name": "Alice",
+            "accept_terms": True,
+            "accept_privacy": True,
         },
     )
     assert signup.status_code == 201
@@ -22,6 +24,8 @@ async def test_signup_login_and_post(client: AsyncClient):
             "email": "bob@example.com",
             "password": "password123",
             "display_name": "Bob",
+            "accept_terms": True,
+            "accept_privacy": True,
         },
     )
     assert signup_b.status_code == 201

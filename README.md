@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| Package | `sns-x-api-prod` `3.0.3` |
+| Package | `sns-x-api-prod` `3.0.4` |
 | Stack | FastAPI / PostgreSQL (pgvector) / Redis / Alembic |
 | Compose ports | API `8002` · Postgres `5434` · Redis `6381` · DB `sns_x_prod` |
 | Frontend CORS | `http://localhost:5175` (prod UI) |
@@ -19,6 +19,13 @@
 | **2** | Reports, moderation (hide/suspend/labels/role), audit events |
 | **3** | Metrics, TrustedHost, CI, backups, account erasure, ops doc |
 | **Ops+** | Optional Sentry · Prometheus `/metrics` · Grafana compose stack |
+| **Legal** | Signup requires `accept_terms` / `accept_privacy`; templates in [`docs/legal/`](docs/legal/) |
+
+## Legal docs (templates)
+
+- [`docs/legal/TERMS.md`](docs/legal/TERMS.md) · [`PRIVACY.md`](docs/legal/PRIVACY.md) · [`CONTACT.md`](docs/legal/CONTACT.md)
+- Version constants: `app/core/legal.py` (`TERMS_VERSION` / `PRIVACY_VERSION`) — bump when you revise the docs
+- These are **templates**, not legal advice. Have counsel review before public launch
 
 ## Quick start
 

@@ -14,6 +14,8 @@ class SignupRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
     display_name: str = Field(min_length=1, max_length=64)
+    accept_terms: bool
+    accept_privacy: bool
 
     @field_validator("handle")
     @classmethod
@@ -21,6 +23,14 @@ class SignupRequest(BaseModel):
         if not HANDLE_PATTERN.match(value):
             raise ValueError("handle must be 3-32 chars: letters, numbers, underscore")
         return value.lower()
+
+    @model_validator(mode="after")
+    def require_legal_acceptance(self) -> "SignupRequest":
+        if not self.accept_terms:
+            raise ValueError("accept_terms must be true")
+        if not self.accept_privacy:
+            raise ValueError("accept_privacy must be true")
+        return self
 
 
 class LoginRequest(BaseModel):

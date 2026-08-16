@@ -15,6 +15,8 @@ async def test_feed_records_impressions(client: AsyncClient):
             "email": "bob_imp@example.com",
             "password": "password123",
             "display_name": "Bob",
+            "accept_terms": True,
+            "accept_privacy": True,
         },
     )
     await client.post(
@@ -24,6 +26,8 @@ async def test_feed_records_impressions(client: AsyncClient):
             "email": "alice_imp@example.com",
             "password": "password123",
             "display_name": "Alice",
+            "accept_terms": True,
+            "accept_privacy": True,
         },
     )
     bob_me = await client.get(
@@ -65,6 +69,8 @@ async def test_like_creates_notification(client: AsyncClient):
             "email": "author_like@example.com",
             "password": "password123",
             "display_name": "Author",
+            "accept_terms": True,
+            "accept_privacy": True,
         },
     )
     await client.post(
@@ -74,6 +80,8 @@ async def test_like_creates_notification(client: AsyncClient):
             "email": "liker_like@example.com",
             "password": "password123",
             "display_name": "Liker",
+            "accept_terms": True,
+            "accept_privacy": True,
         },
     )
     author_login = await client.post(

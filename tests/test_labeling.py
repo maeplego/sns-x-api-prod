@@ -16,6 +16,8 @@ async def test_create_post_returns_202_and_publishes(client: AsyncClient):
             "email": "poster@example.com",
             "password": "password123",
             "display_name": "Poster",
+            "accept_terms": True,
+            "accept_privacy": True,
         },
     )
     login = await client.post(

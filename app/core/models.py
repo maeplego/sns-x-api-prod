@@ -44,6 +44,9 @@ class User(Base):
     cred_score: Mapped[float] = mapped_column(Float, default=50.0)
     token_version: Mapped[int] = mapped_column(Integer, default=0)
     role: Mapped[str] = mapped_column(String(32), default="user")
+    terms_version: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    terms_accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    privacy_accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

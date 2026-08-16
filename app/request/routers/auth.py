@@ -1,8 +1,11 @@
+from datetime import UTC, datetime
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.legal import PRIVACY_VERSION, TERMS_VERSION
 from app.core.models import User, UserStatus
 from app.request.auth import (
     get_current_user,
@@ -44,6 +47,7 @@ async def signup(
     if existing.scalar_one_or_none() is not None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email or handle taken")
 
+    now = datetime.now(UTC)
     user = User(
         handle=body.handle,
         email=body.email,
@@ -52,6 +56,9 @@ async def signup(
         status=UserStatus.ACTIVE,
         role="user",
         token_version=0,
+        terms_version=TERMS_VERSION,
+        terms_accepted_at=now,
+        privacy_accepted_at=now,
     )
     db.add(user)
     await db.flush()
