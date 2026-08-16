@@ -1,6 +1,8 @@
 # Deploy runbook（AWS / Terraform）
 
-個人開発規模で `sns-x-api-prod` + `sns-x-frontend-prod` を公開する手順です。構成の意図は [INFRASTRUCTURE.md](INFRASTRUCTURE.md)。
+個人開発規模で `sns-x-api-prod` + `sns-x-frontend-prod` を公開する **場合の** 手順です。構成の意図は [INFRASTRUCTURE.md](INFRASTRUCTURE.md)。
+
+> **注意:** 本リポジトリでは実 AWS へのデプロイは行っていません。Terraform は設計資料です。普段のデモはローカル Compose（親 README）を使います。以下は「公開するならこうする」という runbook です。
 
 前提:
 

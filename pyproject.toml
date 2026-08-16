@@ -7,7 +7,7 @@ packages = ["app"]
 
 [project]
 name = "sns-x-api-prod"
-version = "3.0.5"
+version = "3.0.6"
 description = "Production-oriented fork of sns-x-api with auth hardening, RBAC, moderation, and ops basics"
 readme = "README.md"
 license = "MIT"
