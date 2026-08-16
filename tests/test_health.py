@@ -1,7 +1,7 @@
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from app.main import app
+from app.main import APP_VERSION, app
 
 
 @pytest.mark.asyncio
@@ -11,4 +11,4 @@ async def test_health_returns_ok():
         response = await client.get("/health")
 
     assert response.status_code == 200
-    assert response.json() == {"status": "ok", "version": "3.0.0"}
+    assert response.json() == {"status": "ok", "version": APP_VERSION}

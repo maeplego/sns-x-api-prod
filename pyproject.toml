@@ -7,7 +7,7 @@ packages = ["app"]
 
 [project]
 name = "sns-x-api-prod"
-version = "3.0.0"
+version = "3.0.2"
 description = "Production-oriented fork of sns-x-api with auth hardening, RBAC, moderation, and ops basics"
 readme = "README.md"
 license = "MIT"
@@ -26,6 +26,7 @@ dependencies = [
     "pyjwt>=2.10.0",
     "redis>=5.2.0",
     "pgvector>=0.3.6",
+    "sentry-sdk[fastapi]>=2.19.0",
 ]
 
 [project.optional-dependencies]

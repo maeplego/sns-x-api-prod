@@ -35,6 +35,9 @@ class Settings(BaseSettings):
 
     allowed_hosts: str = ""
 
+    sentry_dsn: str = ""
+    sentry_traces_sample_rate: float = 0.0
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]

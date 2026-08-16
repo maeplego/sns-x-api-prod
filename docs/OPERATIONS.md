@@ -45,3 +45,4 @@ alembic upgrade head
 11. Take a DB backup before the first production cutover.
 12. Confirm security headers (`X-Content-Type-Options`, `X-Frame-Options`) on responses.
 13. For Compose prod DB password, set `POSTGRES_PASSWORD` in `.env` to the same strong value the API uses (compose default is `sns-prod-local-change-me-32chars!!`).
+14. Optional: set `SENTRY_DSN` (and frontend `VITE_SENTRY_DSN`) for error monitoring.

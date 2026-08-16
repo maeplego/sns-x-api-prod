@@ -12,6 +12,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from app.core.config import settings
 from app.core.database import engine
 from app.core.middleware import RequestIdMiddleware, SecurityHeadersMiddleware, errors_total, requests_total
+from app.core.sentry import init_sentry
 from app.core.startup import run_startup_checks
 from app.labeling.loading import load_all
 from app.ranking.weights import load_weights
@@ -35,7 +36,7 @@ from app.request.routers import (
 
 logger = structlog.get_logger(__name__)
 
-APP_VERSION = "3.0.0"
+APP_VERSION = "3.0.2"
 _is_production = settings.app_env == "production"
 
 
@@ -58,11 +59,13 @@ def configure_logging() -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     configure_logging()
+    init_sentry()
     logger.info(
         "startup",
         app_env=settings.app_env,
         postgres_host=settings.postgres_host,
         redis_host=settings.redis_host,
+        sentry_enabled=bool(settings.sentry_dsn.strip()),
     )
     if settings.app_env != "test":
         load_weights()
