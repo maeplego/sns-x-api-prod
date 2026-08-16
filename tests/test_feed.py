@@ -22,7 +22,11 @@ async def test_feed_shows_followed_user_posts(client: AsyncClient):
             "display_name": "Bob",
         },
     )
-    bob_id = bob_signup.json()["id"]
+    bob_me = await client.get(
+        "/users/me",
+        headers={"Authorization": f"Bearer {bob_signup.json()['access_token']}"},
+    )
+    bob_id = bob_me.json()["id"]
 
     alice_login = await client.post(
         "/auth/login",

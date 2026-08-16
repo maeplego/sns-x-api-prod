@@ -25,7 +25,9 @@ async def test_signup_login_and_post(client: AsyncClient):
         },
     )
     assert signup_b.status_code == 201
-    bob = signup_b.json()
+    bob_headers = {"Authorization": f"Bearer {signup_b.json()['access_token']}"}
+    bob_me = await client.get("/users/me", headers=bob_headers)
+    bob_id = bob_me.json()["id"]
 
     login = await client.post(
         "/auth/login",
@@ -39,7 +41,7 @@ async def test_signup_login_and_post(client: AsyncClient):
     assert me.status_code == 200
     assert me.json()["handle"] == "alice"
 
-    follow = await client.post(f"/follows/{bob['id']}", headers=headers)
+    follow = await client.post(f"/follows/{bob_id}", headers=headers)
     assert follow.status_code == 201
 
     post = await client.post(

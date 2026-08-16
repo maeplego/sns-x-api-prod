@@ -1,5 +1,8 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+WEAK_JWT_SECRETS = frozenset({"dev-only-change-me", "change-me-in-production", ""})
+WEAK_POSTGRES_PASSWORDS = frozenset({"sns", "password", ""})
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
@@ -13,7 +16,7 @@ class Settings(BaseSettings):
     postgres_port: int = 5432
     postgres_user: str = "sns"
     postgres_password: str = "sns"
-    postgres_db: str = "sns"
+    postgres_db: str = "sns_x_prod"
 
     redis_host: str = "localhost"
     redis_port: int = 6379
@@ -21,15 +24,32 @@ class Settings(BaseSettings):
     jwt_secret: str = "dev-only-change-me"
     jwt_algorithm: str = "HS256"
     jwt_expire_hours: int = 24
+    jwt_access_expire_minutes: int = 30
+    jwt_refresh_expire_days: int = 14
 
     cors_origins: str = (
+        "http://localhost:5175,http://127.0.0.1:5175,"
         "http://localhost:5173,http://127.0.0.1:5173,"
         "http://localhost:5174,http://127.0.0.1:5174"
     )
 
+    allowed_hosts: str = ""
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+
+    @property
+    def allowed_host_list(self) -> list[str]:
+        return [host.strip() for host in self.allowed_hosts.split(",") if host.strip()]
+
+    @property
+    def is_weak_jwt_secret(self) -> bool:
+        return self.jwt_secret in WEAK_JWT_SECRETS or len(self.jwt_secret) < 32
+
+    @property
+    def is_weak_postgres_password(self) -> bool:
+        return self.postgres_password in WEAK_POSTGRES_PASSWORDS
 
     @property
     def postgres_dsn(self) -> str:

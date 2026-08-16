@@ -11,6 +11,7 @@ def test_load_all_registers_flow_plans():
     keys = [plan.KEY for plan in plans]
     assert keys == [
         "post_publish",
+        "post_safety_labels",
         "embedding",
         "fanout",
         "reply_side_effects",

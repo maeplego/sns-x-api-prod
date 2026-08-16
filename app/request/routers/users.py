@@ -1,18 +1,27 @@
+import secrets
 import uuid
-
+from datetime import UTC, datetime
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.models import Block, Follow, Mute, Post, PostStatus, PostVisibility, User
 from app.core.social_models import Like
-from app.request.auth import get_current_user, get_optional_user
+from app.request.audit import write_audit_event
+from app.request.auth import (
+    get_current_user,
+    get_optional_user,
+    hash_password,
+    revoke_all_refresh_tokens,
+    verify_password,
+)
 from app.request.feed.types import decode_cursor, encode_cursor
 from app.request.post_cards import build_post_cards
 from app.request.schemas import (
+    AccountEraseRequest,
     PostListResponse,
     ProfileUpdateRequest,
     UserListItem,
@@ -83,6 +92,39 @@ async def update_me(
     await db.commit()
     await db.refresh(current_user)
     return current_user
+
+
+@router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
+async def erase_me(
+    body: AccountEraseRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    if not verify_password(body.password, current_user.password_hash):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Wrong password")
+
+    suffix = secrets.token_hex(8)
+    current_user.handle = f"deleted_{suffix}"
+    current_user.email = f"deleted_{suffix}@invalid.local"
+    current_user.display_name = "Deleted User"
+    current_user.bio = None
+    current_user.password_hash = hash_password(secrets.token_urlsafe(32))
+    current_user.token_version += 1
+    await revoke_all_refresh_tokens(db, current_user.id)
+    await db.execute(
+        update(Post)
+        .where(Post.author_id == current_user.id, Post.deleted_at.is_(None))
+        .values(deleted_at=datetime.now(UTC))
+    )
+    await write_audit_event(
+        db,
+        actor_id=current_user.id,
+        action="user.erase",
+        target_type="user",
+        target_id=current_user.id,
+        reason="self_service_erasure",
+    )
+    await db.commit()
 
 
 @router.get("/{handle}", response_model=UserPublicResponse)

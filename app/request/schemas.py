@@ -30,7 +30,81 @@ class LoginRequest(BaseModel):
 
 class TokenResponse(BaseModel):
     access_token: str
+    refresh_token: str
     token_type: str = "bearer"
+    expires_in: int
+
+
+class SignupResponse(TokenResponse):
+    """Signup returns the token pair plus the created user (for clients/tests)."""
+
+    id: uuid.UUID
+    handle: str
+    email: EmailStr
+    display_name: str
+    bio: str | None = None
+    is_private: bool = False
+    status: UserStatus = UserStatus.ACTIVE
+    role: str = "user"
+    created_at: datetime
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
+
+
+class PasswordChangeRequest(BaseModel):
+    old_password: str
+    new_password: str = Field(min_length=8, max_length=128)
+
+
+class LogoutRequest(BaseModel):
+    refresh_token: str | None = None
+
+
+class AccountEraseRequest(BaseModel):
+    password: str
+
+
+class ReportCreateRequest(BaseModel):
+    target_type: str = Field(pattern="^(post|user)$")
+    target_id: uuid.UUID
+    reason: str = Field(min_length=1, max_length=2000)
+
+
+class ReportResolveRequest(BaseModel):
+    status: str = Field(pattern="^(resolved|dismissed)$")
+    reason: str | None = Field(default=None, max_length=2000)
+
+
+class ReportResponse(BaseModel):
+    id: uuid.UUID
+    reporter_id: uuid.UUID
+    target_type: str
+    target_id: uuid.UUID
+    reason: str
+    status: str
+    created_at: datetime
+    resolved_at: datetime | None = None
+    resolver_id: uuid.UUID | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class ModerationActionRequest(BaseModel):
+    reason: str = Field(default="", max_length=2000)
+
+
+class LabelWriteRequest(BaseModel):
+    target_type: str = Field(pattern="^(post|user)$")
+    target_id: uuid.UUID
+    label: str = Field(min_length=1, max_length=64)
+    reason: str = Field(default="", max_length=2000)
+
+
+class RoleGrantRequest(BaseModel):
+    role: str = Field(pattern="^(user|moderator|admin)$")
+    reason: str = Field(default="", max_length=2000)
 
 
 class UserResponse(BaseModel):
@@ -41,6 +115,7 @@ class UserResponse(BaseModel):
     bio: str | None
     is_private: bool
     status: UserStatus
+    role: str = "user"
     created_at: datetime
 
     model_config = {"from_attributes": True}

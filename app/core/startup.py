@@ -8,6 +8,18 @@ from app.core.database import engine
 logger = structlog.get_logger(__name__)
 
 
+def assert_production_secrets() -> None:
+    """Reject known-weak secrets when running as production."""
+    if settings.app_env != "production":
+        return
+    if settings.is_weak_jwt_secret:
+        raise RuntimeError(
+            "Unsafe JWT_SECRET for production: use a random secret of at least 32 characters"
+        )
+    if settings.is_weak_postgres_password:
+        raise RuntimeError("Unsafe POSTGRES_PASSWORD for production")
+
+
 async def verify_postgres() -> None:
     async with engine.connect() as conn:
         await conn.execute(text("SELECT 1"))
@@ -26,6 +38,7 @@ async def verify_redis() -> None:
 
 
 async def run_startup_checks() -> None:
-    """Fail-fast: refuse to serve if core dependencies are unavailable."""
+    """Fail-fast: refuse to serve if secrets/deps are unsafe or unavailable."""
+    assert_production_secrets()
     await verify_postgres()
     await verify_redis()

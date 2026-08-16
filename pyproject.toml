@@ -6,9 +6,9 @@ build-backend = "hatchling.build"
 packages = ["app"]
 
 [project]
-name = "sns-x-api"
-version = "2.1.0"
-description = "Product SNS forked from sns-tutorial-x-api with indie VF / ranking / Under the Hood"
+name = "sns-x-api-prod"
+version = "3.0.0"
+description = "Production-oriented fork of sns-x-api with auth hardening, RBAC, moderation, and ops basics"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.12"

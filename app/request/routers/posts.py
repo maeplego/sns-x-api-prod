@@ -15,6 +15,7 @@ from app.policy.rules import thread_policy
 from app.request.auth import get_current_user, get_optional_user
 from app.request.feed.types import FeedCandidate
 from app.request.post_cards import build_post_cards
+from app.request.rate_limit import rate_limit
 from app.request.schemas import (
     PostAcceptedResponse,
     PostCreateRequest,
@@ -90,7 +91,12 @@ async def _assert_can_view_reference(db: AsyncSession, viewer: User, target: Pos
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot reference this post")
 
 
-@router.post("", response_model=PostAcceptedResponse, status_code=status.HTTP_202_ACCEPTED)
+@router.post(
+    "",
+    response_model=PostAcceptedResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[Depends(rate_limit("post", limit=30, per_user=True))],
+)
 async def create_post(
     body: PostCreateRequest,
     current_user: User = Depends(get_current_user),
