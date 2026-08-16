@@ -1,0 +1,9 @@
+project_name    = "sns-x-prod"
+aws_region      = "ap-northeast-1"
+route53_zone_id = "ZXXXXXXXXXXXX"
+app_hostname    = "app.example.com"
+api_hostname    = "api.example.com"
+db_username     = "sns"
+# Generate locally: openssl rand -base64 32
+db_password     = "REPLACE_WITH_STRONG_PASSWORD_32CHARS_MIN"
+api_image_tag   = "latest"

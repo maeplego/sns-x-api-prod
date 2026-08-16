@@ -1,0 +1,2 @@
+project_name = "sns-x-prod"
+aws_region   = "ap-northeast-1"

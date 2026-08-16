@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| Package | `sns-x-api-prod` `3.0.4` |
+| Package | `sns-x-api-prod` `3.0.5` |
 | Stack | FastAPI / PostgreSQL (pgvector) / Redis / Alembic |
 | Compose ports | API `8002` · Postgres `5434` · Redis `6381` · DB `sns_x_prod` |
 | Frontend CORS | `http://localhost:5175` (prod UI) |
@@ -59,3 +59,9 @@ Set `SENTRY_DSN` in `.env` to enable Sentry (disabled when empty).
 ## Ops
 
 See [docs/OPERATIONS.md](docs/OPERATIONS.md) for backup/restore and deploy checklist.
+
+### Public launch (AWS)
+
+- Architecture: [docs/INFRASTRUCTURE.md](docs/INFRASTRUCTURE.md) (personal-scale, Terraform)
+- Deploy runbook: [docs/DEPLOY.md](docs/DEPLOY.md)
+- IaC skeleton: [`infra/`](infra/README.md)

@@ -37,7 +37,7 @@ from app.request.routers import (
 
 logger = structlog.get_logger(__name__)
 
-APP_VERSION = "3.0.4"
+APP_VERSION = "3.0.5"
 _is_production = settings.app_env == "production"
 
 

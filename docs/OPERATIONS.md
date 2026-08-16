@@ -48,3 +48,4 @@ alembic upgrade head
 14. Optional: set `SENTRY_DSN` (and frontend `VITE_SENTRY_DSN`) for error monitoring.
 15. Optional observability: `docker compose -f docker-compose.observability.yml up -d` then open Grafana at http://localhost:3000 (admin/admin). Prometheus scrapes `host.docker.internal:8002/metrics`.
 16. Before public launch: fill `docs/legal/*`, set frontend `VITE_OPERATOR_NAME` / `VITE_CONTACT_EMAIL`, and have counsel review the templates.
+17. AWS / Terraform: follow [INFRASTRUCTURE.md](INFRASTRUCTURE.md) and [DEPLOY.md](DEPLOY.md). Prefer Phase 1 (ECS + RDS + CloudFront) or Phase 0 (Lightsail) for a cheaper trial.
