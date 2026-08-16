@@ -46,3 +46,4 @@ alembic upgrade head
 12. Confirm security headers (`X-Content-Type-Options`, `X-Frame-Options`) on responses.
 13. For Compose prod DB password, set `POSTGRES_PASSWORD` in `.env` to the same strong value the API uses (compose default is `sns-prod-local-change-me-32chars!!`).
 14. Optional: set `SENTRY_DSN` (and frontend `VITE_SENTRY_DSN`) for error monitoring.
+15. Optional observability: `docker compose -f docker-compose.observability.yml up -d` then open Grafana at http://localhost:3000 (admin/admin). Prometheus scrapes `host.docker.internal:8002/metrics`.

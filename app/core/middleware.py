@@ -1,3 +1,4 @@
+import time
 import uuid
 from contextvars import ContextVar
 
@@ -7,9 +8,11 @@ from starlette.requests import Request
 from starlette.responses import Response
 
 from app.core.config import settings
+from app.core.metrics import ERRORS, LATENCY, REQUESTS, normalize_path
 
 request_id_ctx: ContextVar[str | None] = ContextVar("request_id", default=None)
 
+# Legacy counters kept for compatibility with older dashboards/tests.
 requests_total = 0
 errors_total = 0
 
@@ -23,10 +26,20 @@ class RequestIdMiddleware(BaseHTTPMiddleware):
         structlog.contextvars.clear_contextvars()
         structlog.contextvars.bind_contextvars(request_id=request_id)
 
+        path = normalize_path(request.url.path)
+        method = request.method
+        started = time.perf_counter()
         requests_total += 1
         response = await call_next(request)
+        elapsed = time.perf_counter() - started
+
+        status = str(response.status_code)
+        REQUESTS.labels(method=method, path=path, status=status).inc()
+        LATENCY.labels(method=method, path=path).observe(elapsed)
         if response.status_code >= 500:
             errors_total += 1
+            ERRORS.labels(method=method, path=path).inc()
+
         response.headers["X-Request-ID"] = request_id
         return response
 

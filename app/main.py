@@ -5,12 +5,13 @@ import redis.asyncio as redis
 import structlog
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, PlainTextResponse
+from fastapi.responses import JSONResponse, Response
 from sqlalchemy import text
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app.core.config import settings
 from app.core.database import engine
+from app.core.metrics import metrics_payload
 from app.core.middleware import RequestIdMiddleware, SecurityHeadersMiddleware, errors_total, requests_total
 from app.core.sentry import init_sentry
 from app.core.startup import run_startup_checks
@@ -36,7 +37,7 @@ from app.request.routers import (
 
 logger = structlog.get_logger(__name__)
 
-APP_VERSION = "3.0.2"
+APP_VERSION = "3.0.3"
 _is_production = settings.app_env == "production"
 
 
@@ -156,9 +157,9 @@ async def health_ready() -> JSONResponse:
 
 
 @app.get("/metrics")
-async def metrics() -> PlainTextResponse:
-    body = (
-        f"requests_total {requests_total}\n"
-        f"errors_total {errors_total}\n"
-    )
-    return PlainTextResponse(body)
+async def metrics() -> Response:
+    payload, content_type = metrics_payload()
+    # Keep legacy plain counters for quick curl debugging.
+    legacy = f"requests_total {requests_total}\nerrors_total {errors_total}\n".encode()
+    body = payload + legacy
+    return Response(content=body, media_type=content_type)
