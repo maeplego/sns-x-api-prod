@@ -20,7 +20,8 @@ services:
     image: pgvector/pgvector:pg16
     environment:
       POSTGRES_USER: sns
-      POSTGRES_PASSWORD: sns
+      # Must not be a weak default when APP_ENV=production (see startup.assert_production_secrets).
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sns-prod-local-change-me-32chars!!}
       POSTGRES_DB: sns_x_prod
     ports:
       - "5434:5432"

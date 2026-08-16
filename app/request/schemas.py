@@ -91,6 +91,21 @@ class ReportResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class AuditEventResponse(BaseModel):
+    id: uuid.UUID
+    actor_id: uuid.UUID | None
+    action: str
+    target_type: str
+    target_id: uuid.UUID | None
+    reason: str
+    ip: str | None
+    request_id: str | None
+    metadata_json: str | None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
 class ModerationActionRequest(BaseModel):
     reason: str = Field(default="", max_length=2000)
 

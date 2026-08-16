@@ -11,7 +11,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app.core.config import settings
 from app.core.database import engine
-from app.core.middleware import RequestIdMiddleware, errors_total, requests_total
+from app.core.middleware import RequestIdMiddleware, SecurityHeadersMiddleware, errors_total, requests_total
 from app.core.startup import run_startup_checks
 from app.labeling.loading import load_all
 from app.ranking.weights import load_weights
@@ -83,6 +83,7 @@ app = FastAPI(
 )
 
 app.add_middleware(RequestIdMiddleware)
+app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origin_list,

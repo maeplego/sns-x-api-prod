@@ -1,15 +1,17 @@
 import uuid
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.models import Post, User, UserStatus
+from app.core.models import AuditEvent, Post, User, UserStatus
 from app.core.safety_models import SafetyTargetType
 from app.request.audit import write_audit_event
 from app.request.deps import require_permissions
 from app.request.schemas import (
+    AuditEventResponse,
     LabelWriteRequest,
     ModerationActionRequest,
     RoleGrantRequest,
@@ -17,6 +19,20 @@ from app.request.schemas import (
 from app.safety.labels import upsert_label
 
 router = APIRouter(prefix="/moderation", tags=["moderation"])
+
+
+@router.get("/audit", response_model=list[AuditEventResponse])
+async def list_audit_events(
+    limit: int = Query(default=50, ge=1, le=200),
+    action: str | None = Query(default=None),
+    _: User = Depends(require_permissions("audit.read")),
+    db: AsyncSession = Depends(get_db),
+) -> list[AuditEvent]:
+    stmt = select(AuditEvent).order_by(AuditEvent.created_at.desc()).limit(limit)
+    if action:
+        stmt = stmt.where(AuditEvent.action == action)
+    rows = await db.execute(stmt)
+    return list(rows.scalars().all())
 
 
 @router.post("/posts/{post_id}/hide", status_code=status.HTTP_204_NO_CONTENT)
