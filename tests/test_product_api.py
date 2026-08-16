@@ -182,6 +182,6 @@ async def test_profile_likes_are_private_to_self(client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_cors_allows_vite_origin(client: AsyncClient):
-    response = await client.get("/health", headers={"Origin": "http://localhost:5174"})
+    response = await client.get("/health", headers={"Origin": "http://localhost:5175"})
     assert response.status_code == 200
-    assert response.headers.get("access-control-allow-origin") == "http://localhost:5174"
+    assert response.headers.get("access-control-allow-origin") == "http://localhost:5175"

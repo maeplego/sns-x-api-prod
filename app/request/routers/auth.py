@@ -57,6 +57,7 @@ async def signup(
         role="user",
         token_version=0,
         terms_version=TERMS_VERSION,
+        privacy_version=PRIVACY_VERSION,
         terms_accepted_at=now,
         privacy_accepted_at=now,
     )

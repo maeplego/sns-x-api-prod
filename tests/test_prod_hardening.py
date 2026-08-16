@@ -104,3 +104,54 @@ async def test_audit_list_requires_admin(client: AsyncClient):
     )
     assert allowed.status_code == 200
     assert isinstance(allowed.json(), list)
+
+
+@pytest.mark.asyncio
+async def test_metrics_exposes_prometheus_text(client: AsyncClient):
+    response = await client.get("/metrics")
+    assert response.status_code == 200
+    body = response.text
+    assert "requests_total" in body
+    # Unauthenticated by design for local Prometheus scrape; lock down at the edge if exposed.
+
+
+@pytest.mark.asyncio
+async def test_signup_persists_terms_and_privacy_versions(client: AsyncClient):
+    from app.core.legal import PRIVACY_VERSION, TERMS_VERSION
+
+    tokens = await _signup(client, "legalver", "legalver@example.com")
+    async with database.SessionLocal() as session:
+        user = await session.scalar(select(User).where(User.email == "legalver@example.com"))
+        assert user is not None
+        assert user.terms_version == TERMS_VERSION
+        assert user.privacy_version == PRIVACY_VERSION
+        assert user.terms_accepted_at is not None
+        assert user.privacy_accepted_at is not None
+    assert tokens["id"]
+
+
+def test_production_secrets_reject_example_jwt(monkeypatch):
+    from app.core import config
+    from app.core.startup import assert_production_secrets
+
+    monkeypatch.setattr(config.settings, "app_env", "production")
+    monkeypatch.setattr(
+        config.settings,
+        "jwt_secret",
+        "change-me-in-production-use-a-long-random-string",
+    )
+    monkeypatch.setattr(config.settings, "postgres_password", "strong-enough-password-here!!")
+    with pytest.raises(RuntimeError, match="JWT_SECRET"):
+        assert_production_secrets()
+
+
+def test_production_docs_url_disabled_when_production():
+    """OpenAPI UI is gated at app construction via APP_ENV (see app.main)."""
+    from app.main import _is_production, app
+
+    if _is_production:
+        assert app.docs_url is None
+        assert app.openapi_url is None
+    else:
+        # Test/CI runs with APP_ENV=test — docs remain available for local exploration.
+        assert app.docs_url == "/docs"

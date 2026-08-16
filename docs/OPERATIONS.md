@@ -46,6 +46,6 @@ alembic upgrade head
 12. Confirm security headers (`X-Content-Type-Options`, `X-Frame-Options`) on responses.
 13. For Compose prod DB password, set `POSTGRES_PASSWORD` in `.env` to the same strong value the API uses (compose default is `sns-prod-local-change-me-32chars!!`).
 14. Optional: set `SENTRY_DSN` (and frontend `VITE_SENTRY_DSN`) for error monitoring.
-15. Optional observability: `docker compose -f docker-compose.observability.yml up -d` then open Grafana at http://localhost:3000 (admin/admin). Prometheus scrapes `host.docker.internal:8002/metrics`.
+15. Optional observability: `docker compose -f docker-compose.observability.yml up -d` then open Grafana at http://localhost:3000 (admin/admin). Prometheus scrapes `host.docker.internal:8002/metrics`. **`GET /metrics` is unauthenticated** — suitable for local/demo scrapes; do not expose it on the public internet without network ACLs.
 16. Before public launch: fill `docs/legal/*`, set frontend `VITE_OPERATOR_NAME` / `VITE_CONTACT_EMAIL`, and have counsel review the templates.
-17. AWS / Terraform: follow [INFRASTRUCTURE.md](INFRASTRUCTURE.md) and [DEPLOY.md](DEPLOY.md). Prefer Phase 1 (ECS + RDS + CloudFront) or Phase 0 (Lightsail) for a cheaper trial.
+17. AWS / Terraform: follow [INFRASTRUCTURE.md](INFRASTRUCTURE.md) and [DEPLOY.md](DEPLOY.md). Prefer Phase 1 (ECS + RDS + CloudFront) or Phase 0 (Lightsail) for a cheaper trial. Treat `infra/` as design-only unless you deliberately apply it.

@@ -238,12 +238,14 @@ SPA のため CloudFront では `403/404 → /index.html` のカスタムエラ�
 | インフラ | `terraform plan` → `apply`（破壊的変更は休日に） |
 | DB schema | API イメージに migration を含めてデプロイ（事前バックアップ） |
 
-GitHub Actions を使う場合の流れ（推奨）:
+GitHub Actions を使う場合の流れ（**推奨設計・本リポジトリには未実装**）:
 
 1. `infra/` で OIDC 用 IAM ロールを作成（ドキュメントは `infra/README.md`）。
 2. `api` workflow: test → build → push → ECS。
 3. `frontend` workflow: test/build → s3 sync → invalidate。
 4. `terraform` workflow: `plan` を PR にコメント、`apply` は `main` + environment 承認。
+
+現状の自動化は API の **pytest CI** と FE の **smoke E2E + `npm run build`** のみです。デプロイ用 workflow は置いていません。
 
 ---
 

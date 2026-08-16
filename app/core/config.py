@@ -1,6 +1,13 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-WEAK_JWT_SECRETS = frozenset({"dev-only-change-me", "change-me-in-production", ""})
+WEAK_JWT_SECRETS = frozenset(
+    {
+        "dev-only-change-me",
+        "change-me-in-production",
+        "change-me-in-production-use-a-long-random-string",
+        "",
+    }
+)
 WEAK_POSTGRES_PASSWORDS = frozenset({"sns", "password", ""})
 
 
