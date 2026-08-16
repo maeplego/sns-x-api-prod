@@ -2,7 +2,7 @@ import base64
 import json
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import date, datetime
 
 from app.core.models import PostVisibility, UserStatus
 
@@ -27,6 +27,7 @@ class FeedQuery:
     hidden_post_ids: set[uuid.UUID] = field(default_factory=set)
     not_interested_author_ids: set[uuid.UUID] = field(default_factory=set)
     viewer_interest_vector: list[float] | None = None
+    viewer_birthdate: date | None = None
     cursor: tuple[datetime, uuid.UUID] | None = None
     limit: int = 20
 
@@ -67,6 +68,8 @@ class FeedCandidate:
     safety_labels: set[str] = field(default_factory=set)
     author_safety_labels: set[str] = field(default_factory=set)
     author_cred_score: float = 50.0
+    policy_visibility: str = "allow"
+    interstitial_reason: str | None = None
 
 
 def encode_cursor(created_at: datetime, post_id: uuid.UUID) -> str:

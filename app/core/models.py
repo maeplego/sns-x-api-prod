@@ -1,8 +1,8 @@
 import enum
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import DateTime, Enum, Float, ForeignKey, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy import Date, DateTime, Enum, Float, ForeignKey, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -44,6 +44,7 @@ class User(Base):
     cred_score: Mapped[float] = mapped_column(Float, default=50.0)
     token_version: Mapped[int] = mapped_column(Integer, default=0)
     role: Mapped[str] = mapped_column(String(32), default="user")
+    birthdate: Mapped[date | None] = mapped_column(Date, nullable=True)
     terms_version: Mapped[str | None] = mapped_column(String(32), nullable=True)
     privacy_version: Mapped[str | None] = mapped_column(String(32), nullable=True)
     terms_accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

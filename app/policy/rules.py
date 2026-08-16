@@ -1,5 +1,6 @@
 from datetime import UTC, datetime
 
+from app.core.age import NSFW_LABELS, is_adult
 from app.core.models import PostVisibility, UserStatus
 from app.policy.engine import PolicyContext, PolicyVerdict, Rule
 
@@ -29,6 +30,37 @@ class AgeRule(Rule):
         if age_hours > MAX_AGE_HOURS:
             return PolicyVerdict.DROP
         return PolicyVerdict.ALLOW
+
+
+class ViewerAgeGateRule(Rule):
+    """Minors never see NSFW-labeled posts (DROP)."""
+
+    name = "ViewerAgeGateRule"
+
+    def evaluate(self, context: PolicyContext) -> PolicyVerdict:
+        labels = context.candidate.safety_labels | context.candidate.author_safety_labels
+        if not (labels & NSFW_LABELS):
+            return PolicyVerdict.ALLOW
+        if is_adult(context.viewer_birthdate):
+            return PolicyVerdict.ALLOW
+        return PolicyVerdict.DROP
+
+
+class SensitiveInterstitialRule(Rule):
+    """Adults see NSFW in-network posts behind an interstitial (x-algorithm style lite)."""
+
+    name = "SensitiveInterstitialRule"
+
+    def evaluate(self, context: PolicyContext) -> PolicyVerdict:
+        candidate = context.candidate
+        labels = candidate.safety_labels | candidate.author_safety_labels
+        if not (labels & NSFW_LABELS):
+            return PolicyVerdict.ALLOW
+        if not is_adult(context.viewer_birthdate):
+            return PolicyVerdict.ALLOW  # ViewerAgeGateRule drops minors
+        if candidate.source == "oon":
+            return PolicyVerdict.ALLOW  # OonAmplificationRule drops OON NSFW
+        return PolicyVerdict.INTERSTITIAL
 
 
 class BlockedAuthorRule(Rule):
@@ -167,6 +199,8 @@ def home_feed_policy() -> list[Rule]:
         OonReplyRule(),
         OonAmplificationRule(),
         ReplyAncillaryRule(),
+        ViewerAgeGateRule(),
+        SensitiveInterstitialRule(),
     ]
 
 
@@ -181,6 +215,8 @@ def following_feed_policy() -> list[Rule]:
         PrivateAccountRule(),
         FollowersOnlyPostRule(),
         ReplyAncillaryRule(),
+        ViewerAgeGateRule(),
+        SensitiveInterstitialRule(),
     ]
 
 
@@ -193,4 +229,6 @@ def thread_policy() -> list[Rule]:
         SuspendedAuthorRule(),
         PrivateAccountRule(),
         FollowersOnlyPostRule(),
+        ViewerAgeGateRule(),
+        SensitiveInterstitialRule(),
     ]

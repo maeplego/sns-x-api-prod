@@ -31,13 +31,14 @@ from app.request.routers import (
     posts,
     reports,
     search,
+    trends,
     under_the_hood,
     users,
 )
 
 logger = structlog.get_logger(__name__)
 
-APP_VERSION = "3.0.7"
+APP_VERSION = "3.1.0"
 _is_production = settings.app_env == "production"
 
 
@@ -113,6 +114,7 @@ app.include_router(search.router)
 app.include_router(under_the_hood.router)
 app.include_router(reports.router)
 app.include_router(moderation.router)
+app.include_router(trends.router)
 
 
 @app.exception_handler(Exception)

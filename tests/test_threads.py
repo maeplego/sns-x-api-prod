@@ -17,7 +17,7 @@ async def _signup(client: AsyncClient, handle: str, email: str) -> dict:
             "email": email,
             "password": "password123",
             "display_name": handle.title(),
-            "accept_terms": True,
+            "birthdate": "1990-01-01", "accept_terms": True,
             "accept_privacy": True,
         },
     )

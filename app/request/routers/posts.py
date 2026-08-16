@@ -18,6 +18,7 @@ from app.request.post_cards import build_post_cards
 from app.request.rate_limit import rate_limit
 from app.request.schemas import (
     PostAcceptedResponse,
+    PostCardItem,
     PostCreateRequest,
     PostResponse,
     ThreadResponse,
@@ -235,7 +236,18 @@ async def get_thread(
         ).all()
     }
 
+    from app.core.safety_models import SafetyTargetType
+    from app.safety.labels import labels_for_targets
+
+    post_labels = await labels_for_targets(
+        db, target_type=SafetyTargetType.POST, target_ids={row.id for row in posts}
+    )
+    author_labels = await labels_for_targets(
+        db, target_type=SafetyTargetType.USER, target_ids=set(author_ids)
+    )
+
     visible_posts: list[Post] = []
+    interstitial_ids: set[uuid.UUID] = set()
     rules = thread_policy()
     for row in posts:
         author = authors.get(row.author_id)
@@ -247,6 +259,9 @@ async def get_thread(
             visibility=row.visibility,
             parent_id=row.parent_id,
             root_id=row.root_id,
+            safety_labels=set(post_labels.get(row.id, set())),
+            author_safety_labels=set(author_labels.get(row.author_id, set())),
+            source="in_network",
         )
         if author is not None:
             candidate.author_handle = author.handle
@@ -260,10 +275,13 @@ async def get_thread(
             muted_user_ids=muted_ids,
             muted_keywords=muted_keywords,
             candidate=candidate,
+            viewer_birthdate=current_user.birthdate,
         )
         verdict, _ = evaluate_rules(rules, context)
         if verdict == PolicyVerdict.DROP:
             continue
+        if verdict == PolicyVerdict.INTERSTITIAL:
+            interstitial_ids.add(row.id)
         visible_posts.append(row)
 
     visible_ids = {item.id for item in visible_posts if item.parent_id is None}
@@ -277,8 +295,51 @@ async def get_thread(
     visible_posts = [item for item in visible_posts if item.id in visible_ids]
     visible_posts.sort(key=lambda item: (item.parent_id is not None, item.created_at, str(item.id)))
     items = await build_post_cards(db, visible_posts, current_user.id)
+    for card in items:
+        if card.id in interstitial_ids:
+            card.body = ""
+            card.visibility_state = "interstitial"
+            card.interstitial_reason = "sensitive"
+            card.quote_of = None
+            card.repost_of = None
 
     return ThreadResponse(root_id=root_id, items=items)
+
+
+@router.get("/{post_id}/reveal", response_model=PostCardItem)
+async def reveal_post(
+    post_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> PostCardItem:
+    """Return full body for an interstitial-eligible NSFW post (adults only)."""
+    from app.core.age import is_adult
+    from app.core.safety_models import SafetyTargetType
+    from app.safety.labels import labels_for_targets
+
+    if not is_adult(current_user.birthdate):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Age restricted")
+
+    post = await db.get(Post, post_id)
+    if post is None or post.deleted_at is not None or post.status != PostStatus.PUBLISHED:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
+
+    labels = await labels_for_targets(
+        db, target_type=SafetyTargetType.POST, target_ids={post.id}
+    )
+    post_labels = set(labels.get(post.id, set()))
+    if "nsfw" not in post_labels:
+        # Still allow reveal of plain posts (idempotent UX)
+        pass
+
+    cards = await build_post_cards(db, [post], current_user.id)
+    if not cards:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
+    card = cards[0]
+    card.visibility_state = "allow"
+    card.interstitial_reason = None
+    card.safety_labels = sorted(post_labels)
+    return card
 
 
 @router.delete("/{post_id}", status_code=status.HTTP_204_NO_CONTENT)

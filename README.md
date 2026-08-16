@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| Package | `sns-x-api-prod` `3.0.7` |
+| Package | `sns-x-api-prod` `3.1.0` |
 | Stack | FastAPI / PostgreSQL (pgvector) / Redis / Alembic |
 | Compose ports | API `8002` · Postgres `5434` · Redis `6381` · DB `sns_x_prod` |
 | Frontend | [`sns-x-frontend-prod`](https://github.com/maeplego/sns-x-frontend-prod) on `:5175` |
@@ -22,6 +22,8 @@
 | Trust & safety | Reports, RBAC, moderation APIs, audit log |
 | Privacy | Account erasure (`DELETE /users/me` soft-anonymize) |
 | Legal readiness | Signup stores `terms_version` + `privacy_version`; templates in [`docs/legal/`](docs/legal/) |
+| Age / interstitial | Signup `birthdate` (13+); minors DROP NSFW; adults get INTERSTITIAL + `/posts/{id}/reveal` |
+| Trends | `GET /trends` hashtag window aggregation |
 | Observability | `/health` · `/health/ready` · **unauthenticated** `/metrics` (local scrape); optional Sentry |
 | Ops literacy | Backups, checklist in [`docs/OPERATIONS.md`](docs/OPERATIONS.md) |
 | Cloud design (docs only) | [`docs/INFRASTRUCTURE.md`](docs/INFRASTRUCTURE.md) + [`infra/`](infra/README.md) |
@@ -46,7 +48,9 @@ npm install && npm run dev
 | Check | URL / action |
 |---|---|
 | API up | http://localhost:8002/health · `/health/ready` |
-| UI | http://localhost:5175 — signup (terms/PP checks) → post → settings (shows user id) |
+| UI | http://localhost:5175 — signup（生年月日・規約同意）→ post → settings |
+| Age / interstitial | NSFW ラベル付き投稿は未成年 DROP、成人は警告→「表示する」 |
+| Trends | `/trends` |
 | Report → moderation | **Two accounts** — see below |
 | Metrics (optional) | `docker compose -f docker-compose.observability.yml up -d` → Grafana `:3000` |
 | Under the Hood | UI `/under-the-hood` (ranking explanation surface) |
@@ -94,6 +98,8 @@ pytest
 | **3** | Metrics, TrustedHost, pytest CI, backups, account erasure, ops doc |
 | **Ops+** | Optional Sentry · Prometheus `/metrics` · Grafana compose |
 | **Legal** | Signup legal acceptance + version columns |
+| **Age / VF lite** | Birthdate gate + INTERSTITIAL for NSFW |
+| **Trends** | Hashtag window aggregation (`GET /trends`) |
 | **Infra docs** | AWS design + Terraform skeleton (**not applied**) |
 
 ## Legal docs (templates)

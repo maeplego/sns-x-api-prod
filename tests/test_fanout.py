@@ -18,7 +18,7 @@ async def test_fanout_populates_user_feed_on_publish(client: AsyncClient):
             "email": "bob_fan@example.com",
             "password": "password123",
             "display_name": "Bob",
-            "accept_terms": True,
+            "birthdate": "1990-01-01", "accept_terms": True,
             "accept_privacy": True,
         },
     )
@@ -29,7 +29,7 @@ async def test_fanout_populates_user_feed_on_publish(client: AsyncClient):
             "email": "alice_fan@example.com",
             "password": "password123",
             "display_name": "Alice",
-            "accept_terms": True,
+            "birthdate": "1990-01-01", "accept_terms": True,
             "accept_privacy": True,
         },
     )
@@ -83,7 +83,7 @@ async def test_feed_reads_from_user_feed(client: AsyncClient):
             "email": "bob_feed@example.com",
             "password": "password123",
             "display_name": "Bob",
-            "accept_terms": True,
+            "birthdate": "1990-01-01", "accept_terms": True,
             "accept_privacy": True,
         },
     )
@@ -94,7 +94,7 @@ async def test_feed_reads_from_user_feed(client: AsyncClient):
             "email": "alice_feed@example.com",
             "password": "password123",
             "display_name": "Alice",
-            "accept_terms": True,
+            "birthdate": "1990-01-01", "accept_terms": True,
             "accept_privacy": True,
         },
     )
@@ -131,7 +131,7 @@ async def test_followers_only_fanout_excludes_non_followers(client: AsyncClient)
             "email": "author_fo@example.com",
             "password": "password123",
             "display_name": "Author",
-            "accept_terms": True,
+            "birthdate": "1990-01-01", "accept_terms": True,
             "accept_privacy": True,
         },
     )
@@ -142,7 +142,7 @@ async def test_followers_only_fanout_excludes_non_followers(client: AsyncClient)
             "email": "follower_fo@example.com",
             "password": "password123",
             "display_name": "Follower",
-            "accept_terms": True,
+            "birthdate": "1990-01-01", "accept_terms": True,
             "accept_privacy": True,
         },
     )
@@ -153,7 +153,7 @@ async def test_followers_only_fanout_excludes_non_followers(client: AsyncClient)
             "email": "stranger_fo@example.com",
             "password": "password123",
             "display_name": "Stranger",
-            "accept_terms": True,
+            "birthdate": "1990-01-01", "accept_terms": True,
             "accept_privacy": True,
         },
     )

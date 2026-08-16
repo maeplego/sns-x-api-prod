@@ -20,7 +20,7 @@ async def test_oon_post_appears_in_feed(client: AsyncClient):
             "email": "alice_oon@example.com",
             "password": "password123",
             "display_name": "Alice",
-            "accept_terms": True,
+            "birthdate": "1990-01-01", "accept_terms": True,
             "accept_privacy": True,
         },
     )
@@ -31,7 +31,7 @@ async def test_oon_post_appears_in_feed(client: AsyncClient):
             "email": "bob_oon@example.com",
             "password": "password123",
             "display_name": "Bob",
-            "accept_terms": True,
+            "birthdate": "1990-01-01", "accept_terms": True,
             "accept_privacy": True,
         },
     )
@@ -42,7 +42,7 @@ async def test_oon_post_appears_in_feed(client: AsyncClient):
             "email": "carol_oon@example.com",
             "password": "password123",
             "display_name": "Carol",
-            "accept_terms": True,
+            "birthdate": "1990-01-01", "accept_terms": True,
             "accept_privacy": True,
         },
     )
@@ -94,7 +94,7 @@ async def test_embedding_created_on_publish(client: AsyncClient):
             "email": "embed_user@example.com",
             "password": "password123",
             "display_name": "Embed",
-            "accept_terms": True,
+            "birthdate": "1990-01-01", "accept_terms": True,
             "accept_privacy": True,
         },
     )

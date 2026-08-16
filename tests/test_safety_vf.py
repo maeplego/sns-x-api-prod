@@ -29,7 +29,9 @@ def test_oon_amplification_drops_labeled_posts():
     assert rule == "OonAmplificationRule"
 
 
-def test_in_network_keeps_labeled_posts():
+def test_in_network_nsfw_becomes_interstitial_for_adults():
+    from datetime import date
+
     viewer = uuid4()
     author = uuid4()
     candidate = FeedCandidate(
@@ -47,9 +49,11 @@ def test_in_network_keeps_labeled_posts():
         following_ids={author},
         blocked_user_ids=set(),
         candidate=candidate,
+        viewer_birthdate=date(1990, 1, 1),
     )
-    verdict, _ = evaluate_rules(home_feed_policy(), context)
-    assert verdict == PolicyVerdict.ALLOW
+    verdict, rule = evaluate_rules(home_feed_policy(), context)
+    assert verdict == PolicyVerdict.INTERSTITIAL
+    assert rule == "SensitiveInterstitialRule"
 
 
 def test_oon_amplification_drops_author_labels():

@@ -97,6 +97,13 @@ class FollowingQueryHydrator(QueryHydrator):
         return query
 
 
+class ViewerBirthdateQueryHydrator(QueryHydrator):
+    async def hydrate(self, db: AsyncSession, query: FeedQuery) -> FeedQuery:
+        birthdate = await db.scalar(select(User.birthdate).where(User.id == query.viewer_id))
+        query.viewer_birthdate = birthdate
+        return query
+
+
 class BlockedUserIdsQueryHydrator(QueryHydrator):
     async def hydrate(self, db: AsyncSession, query: FeedQuery) -> FeedQuery:
         result = await db.execute(
@@ -455,6 +462,7 @@ class PolicyFilter:
     async def apply(self, query: FeedQuery, candidates: list[FeedCandidate]) -> list[FeedCandidate]:
         kept: list[FeedCandidate] = []
         drops: list[dict[str, str]] = []
+        interstitials: list[dict[str, str]] = []
 
         for candidate in candidates:
             context = PolicyContext(
@@ -465,6 +473,7 @@ class PolicyFilter:
                 muted_keywords=query.muted_keywords,
                 hidden_post_ids=query.hidden_post_ids,
                 candidate=candidate,
+                viewer_birthdate=query.viewer_birthdate,
             )
             verdict, rule_name = evaluate_rules(self.rules, context)
             if verdict == PolicyVerdict.DROP:
@@ -476,6 +485,18 @@ class PolicyFilter:
                     }
                 )
                 continue
+            if verdict == PolicyVerdict.INTERSTITIAL:
+                candidate.policy_visibility = "interstitial"
+                candidate.interstitial_reason = "sensitive"
+                interstitials.append(
+                    {
+                        "post_id": str(candidate.id),
+                        "rule": rule_name or "unknown",
+                    }
+                )
+            else:
+                candidate.policy_visibility = "allow"
+                candidate.interstitial_reason = None
             kept.append(candidate)
 
         if drops:
@@ -484,6 +505,13 @@ class PolicyFilter:
                 viewer_id=str(query.viewer_id),
                 dropped_count=len(drops),
                 drops=drops[:20],
+            )
+        if interstitials:
+            logger.info(
+                "policy_interstitials",
+                viewer_id=str(query.viewer_id),
+                count=len(interstitials),
+                items=interstitials[:20],
             )
         return kept
 
@@ -619,6 +647,7 @@ def build_feed_pipeline(weights: RankingWeights | None = None) -> FeedPipeline:
     return FeedPipeline(
         query_hydrators=[
             FollowingQueryHydrator(),
+            ViewerBirthdateQueryHydrator(),
             BlockedUserIdsQueryHydrator(),
             MutedUserIdsQueryHydrator(),
             MutedKeywordsQueryHydrator(),
@@ -649,6 +678,7 @@ def build_following_pipeline(weights: RankingWeights | None = None) -> FeedPipel
     return FeedPipeline(
         query_hydrators=[
             FollowingQueryHydrator(),
+            ViewerBirthdateQueryHydrator(),
             BlockedUserIdsQueryHydrator(),
             MutedUserIdsQueryHydrator(),
             MutedKeywordsQueryHydrator(),
@@ -657,6 +687,7 @@ def build_following_pipeline(weights: RankingWeights | None = None) -> FeedPipel
         sources=[ThunderSource()],
         hydrators=[
             AuthorHydrator(),
+            SafetyLabelHydrator(),
             ParentHydrator(),
             EngagementHydrator(),
             ReferenceHydrator(),

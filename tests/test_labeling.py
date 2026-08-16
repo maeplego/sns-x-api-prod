@@ -16,7 +16,7 @@ async def test_create_post_returns_202_and_publishes(client: AsyncClient):
             "email": "poster@example.com",
             "password": "password123",
             "display_name": "Poster",
-            "accept_terms": True,
+            "birthdate": "1990-01-01", "accept_terms": True,
             "accept_privacy": True,
         },
     )

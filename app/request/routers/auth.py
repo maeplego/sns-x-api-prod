@@ -56,6 +56,7 @@ async def signup(
         status=UserStatus.ACTIVE,
         role="user",
         token_version=0,
+        birthdate=body.birthdate,
         terms_version=TERMS_VERSION,
         privacy_version=PRIVACY_VERSION,
         terms_accepted_at=now,
@@ -78,6 +79,7 @@ async def signup(
         is_private=user.is_private,
         status=user.status,
         role=user.role,
+        birthdate=user.birthdate,
         created_at=user.created_at,
     )
 

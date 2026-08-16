@@ -11,7 +11,7 @@ async def test_feed_shows_followed_user_posts(client: AsyncClient):
             "email": "alice@example.com",
             "password": "password123",
             "display_name": "Alice",
-            "accept_terms": True,
+            "birthdate": "1990-01-01", "accept_terms": True,
             "accept_privacy": True,
         },
     )
@@ -22,7 +22,7 @@ async def test_feed_shows_followed_user_posts(client: AsyncClient):
             "email": "bob@example.com",
             "password": "password123",
             "display_name": "Bob",
-            "accept_terms": True,
+            "birthdate": "1990-01-01", "accept_terms": True,
             "accept_privacy": True,
         },
     )

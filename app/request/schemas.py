@@ -1,9 +1,10 @@
 import re
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
+from app.core.age import MIN_SIGNUP_AGE, age_years
 from app.core.models import PostStatus, PostVisibility, UserStatus
 
 HANDLE_PATTERN = re.compile(r"^[a-zA-Z0-9_]{3,32}$")
@@ -14,6 +15,7 @@ class SignupRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
     display_name: str = Field(min_length=1, max_length=64)
+    birthdate: date
     accept_terms: bool
     accept_privacy: bool
 
@@ -23,6 +25,16 @@ class SignupRequest(BaseModel):
         if not HANDLE_PATTERN.match(value):
             raise ValueError("handle must be 3-32 chars: letters, numbers, underscore")
         return value.lower()
+
+    @field_validator("birthdate")
+    @classmethod
+    def validate_birthdate(cls, value: date) -> date:
+        years = age_years(value)
+        if years is None or years < MIN_SIGNUP_AGE:
+            raise ValueError(f"must be at least {MIN_SIGNUP_AGE} years old")
+        if value > date.today():
+            raise ValueError("birthdate cannot be in the future")
+        return value
 
     @model_validator(mode="after")
     def require_legal_acceptance(self) -> "SignupRequest":
@@ -56,6 +68,7 @@ class SignupResponse(TokenResponse):
     is_private: bool = False
     status: UserStatus = UserStatus.ACTIVE
     role: str = "user"
+    birthdate: date | None = None
     created_at: datetime
 
 
@@ -141,6 +154,7 @@ class UserResponse(BaseModel):
     is_private: bool
     status: UserStatus
     role: str = "user"
+    birthdate: date | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -229,6 +243,9 @@ class PostCardItem(BaseModel):
     reposted: bool = False
     quote_of: ReferencedPostItem | None = None
     repost_of: ReferencedPostItem | None = None
+    visibility_state: str = "allow"
+    interstitial_reason: str | None = None
+    safety_labels: list[str] = Field(default_factory=list)
 
 
 class ThreadPostItem(BaseModel):
@@ -337,3 +354,15 @@ class FeedbackResponse(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class TrendItem(BaseModel):
+    term: str
+    score: float
+    post_count: int
+    unique_authors: int
+
+
+class TrendsResponse(BaseModel):
+    window_hours: int
+    items: list[TrendItem]

@@ -10,7 +10,7 @@ async def _signup(client: AsyncClient, handle: str, email: str, password: str = 
             "email": email,
             "password": password,
             "display_name": handle.title(),
-            "accept_terms": True,
+            "birthdate": "1990-01-01", "accept_terms": True,
             "accept_privacy": True,
         },
     )
@@ -70,7 +70,7 @@ async def test_signup_requires_legal_acceptance(client: AsyncClient):
             "email": "nolegal@example.com",
             "password": "password123",
             "display_name": "No Legal",
-            "accept_terms": False,
+            "birthdate": "1990-01-01", "accept_terms": False,
             "accept_privacy": True,
         },
     )

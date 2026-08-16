@@ -59,27 +59,33 @@ def _ref_item(ref) -> ReferencedPostItem | None:
 
 
 def _post_items(candidates: list[FeedCandidate]) -> list[FeedPostItem]:
-    return [
-        FeedPostItem(
-            id=c.id,
-            author_id=c.author_id,
-            author_handle=c.author_handle or "unknown",
-            author_display_name=c.author_display_name or "Unknown",
-            body=c.body,
-            created_at=c.created_at,
-            rank_score=c.rank_score,
-            parent_id=c.parent_id,
-            parent_author_handle=c.parent_author_handle,
-            like_count=c.like_count,
-            reply_count=c.reply_count,
-            repost_count=c.repost_count,
-            liked=c.liked,
-            reposted=c.reposted,
-            quote_of=_ref_item(c.quote_of),
-            repost_of=_ref_item(c.repost_of),
+    items: list[FeedPostItem] = []
+    for c in candidates:
+        interstitial = c.policy_visibility == "interstitial"
+        items.append(
+            FeedPostItem(
+                id=c.id,
+                author_id=c.author_id,
+                author_handle=c.author_handle or "unknown",
+                author_display_name=c.author_display_name or "Unknown",
+                body="" if interstitial else c.body,
+                created_at=c.created_at,
+                rank_score=c.rank_score,
+                parent_id=c.parent_id,
+                parent_author_handle=c.parent_author_handle,
+                like_count=c.like_count,
+                reply_count=c.reply_count,
+                repost_count=c.repost_count,
+                liked=c.liked,
+                reposted=c.reposted,
+                quote_of=None if interstitial else _ref_item(c.quote_of),
+                repost_of=None if interstitial else _ref_item(c.repost_of),
+                visibility_state="interstitial" if interstitial else "allow",
+                interstitial_reason=c.interstitial_reason,
+                safety_labels=sorted(c.safety_labels | c.author_safety_labels),
+            )
         )
-        for c in candidates
-    ]
+    return items
 
 
 def _post_ids(items: list[FeedItem]) -> list[uuid.UUID]:
